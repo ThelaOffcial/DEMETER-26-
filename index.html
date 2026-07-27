@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DEMETER 26' — Eco Quiz</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="questions-data.js"></script>
+<style>
+  :root{
+    --canopy:#173D2E;
+    --moss:#2D6A4F;
+    --fern:#52796F;
+    --paper:#F1F3EA;
+    --gold:#D9A441;
+    --bark:#3A2E1F;
+    --alert:#B3402E;
+    --font-display:'Fraunces',Georgia,serif;
+    --font-body:'Work Sans',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;-webkit-user-select:none;user-select:none;}
+  body{
+    background:var(--paper);
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(45,106,79,0.06) 0, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(217,164,65,0.08) 0, transparent 45%);
+    font-family:var(--font-body);
+    color:var(--bark);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px 16px 64px;
+  }
+  h1,h2,h3{font-family:var(--font-display);}
+
+  .brand{text-align:center;margin-bottom:28px;}
+  .brand .eyebrow{letter-spacing:.22em;text-transform:uppercase;font-size:12px;color:var(--fern);font-weight:600;}
+  .brand h1{font-size:34px;margin:6px 0 0;color:var(--canopy);}
+  .brand p{margin:6px 0 0;color:var(--fern);font-size:14px;}
+
+  .card{background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(23,61,46,0.10);padding:32px;width:100%;max-width:620px;}
+  label{display:block;font-size:13px;font-weight:600;color:var(--moss);margin:16px 0 6px;}
+  input{width:100%;padding:12px 14px;border:1.5px solid #DDE4D8;border-radius:10px;font-size:15px;font-family:var(--font-body);background:#FAFBF7;}
+  input:focus{outline:none;border-color:var(--moss);}
+  button{font-family:var(--font-body);cursor:pointer;border:none;}
+  .btn-primary{margin-top:26px;width:100%;background:var(--canopy);color:#fff;padding:14px;border-radius:10px;font-size:16px;font-weight:600;letter-spacing:.01em;transition:transform .15s ease, background .15s ease;}
+  .btn-primary:hover{background:var(--moss);}
+  .btn-primary:active{transform:scale(.98);}
+  .btn-primary:disabled{background:#B7BDB1;cursor:not-allowed;}
+
+  .rules{margin-top:18px;background:#F5F7EF;border-left:3px solid var(--gold);padding:14px 16px;border-radius:8px;font-size:13px;line-height:1.6;color:var(--bark);}
+  .rules b{color:var(--canopy);}
+  .hidden{display:none !important;}
+
+  #quizScreen{width:100%;max-width:760px;}
+  .top-bar{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:14px;padding:14px 20px;box-shadow:0 8px 24px rgba(23,61,46,0.08);margin-bottom:18px;gap:14px;}
+  .phase-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fern);}
+  .phase-label.answering{color:var(--gold);}
+  .timer{font-family:var(--font-display);font-size:26px;font-weight:600;color:var(--canopy);min-width:52px;text-align:center;}
+  .timer.low{color:var(--alert);}
+  .vine-progress{flex:1;height:10px;background:#E4E9DC;border-radius:6px;overflow:hidden;position:relative;}
+  .vine-progress .fill{height:100%;background:linear-gradient(90deg,var(--fern),var(--moss));border-radius:6px;transition:width .3s ease;}
+  .qcount{font-size:13px;color:var(--fern);font-weight:600;white-space:nowrap;}
+
+  .question-card{background:#fff;border-radius:18px;padding:32px;box-shadow:0 12px 40px rgba(23,61,46,0.10);}
+  .q-num{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--canopy);color:#fff;font-family:var(--font-display);font-size:15px;margin-bottom:14px;}
+  .q-text{font-size:19px;line-height:1.45;margin:0 0 22px;color:var(--bark);}
+  .option{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #E4E9DC;border-radius:12px;margin-bottom:10px;cursor:pointer;font-size:15px;transition:border-color .15s, background .15s, opacity .15s;}
+  .option:hover{border-color:var(--fern);}
+  .option.selected{border-color:var(--moss);background:#EDF3E8;}
+  .option.disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}
+  .option .letter{width:26px;height:26px;flex:0 0 26px;border-radius:50%;border:1.5px solid #C7D0BE;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--fern);}
+  .option.selected .letter{background:var(--moss);border-color:var(--moss);color:#fff;}
+
+  #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:var(--alert);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:999;max-width:90%;text-align:center;}
+
+  #lockOverlay{position:fixed;inset:0;background:rgba(23,32,25,.92);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:1000;padding:24px;}
+  #lockOverlay h2{font-size:26px;margin-bottom:10px;}
+  #lockOverlay p{max-width:420px;line-height:1.6;color:#D8E0D2;}
+
+  #fsGraceOverlay{position:fixed;inset:0;background:rgba(120,20,20,.95);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:1001;padding:24px;}
+  #fsGraceOverlay h2{font-size:28px;margin-bottom:8px;}
+  #fsGraceOverlay .count{font-family:var(--font-display);font-size:64px;margin:10px 0;}
+  #fsGraceOverlay p{max-width:420px;line-height:1.6;}
+
+  #doneScreen{max-width:520px;text-align:center;}
+  #doneScreen .leaf{font-size:52px;}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="eyebrow">All Island Inter School Eco Quiz</div>
+  <h1>DEMETER 26'</h1>
+  <p>First Round — English Medium</p>
+</div>
+
+<!-- REGISTRATION -->
+<div class="card" id="regScreen">
+  <label for="fName">Full Name *</label>
+  <input id="fName" type="text" placeholder="e.g. K. D. Perera" autocomplete="off">
+
+  <label for="fSchool">School *</label>
+  <input id="fSchool" type="text" placeholder="e.g. Visakha Vidyalaya, Colombo" autocomplete="off">
+
+  <label for="fGrade">Grade / Index Number (optional)</label>
+  <input id="fGrade" type="text" placeholder="e.g. Grade 10 — 4521" autocomplete="off">
+
+  <button class="btn-primary" id="startBtn">Start Quiz</button>
+
+  <div class="rules">
+    <b>Before you start:</b><br>
+    • 45 questions. Each question: <b>10 seconds to read</b>, then <b>20 seconds to answer</b> — the quiz moves on automatically.<br>
+    • There is no going back once a question's time is up.<br>
+    • Answering quickly and correctly can earn you bonus marks.<br>
+    • Only <b>one submission per device</b> is allowed.<br>
+    • The quiz runs in full screen. Switching tabs or minimising the window is logged as a violation — <b>3 violations auto-submit your quiz.</b><br>
+    • Exiting full screen gives you only <b>5 seconds</b> to return before your quiz is auto-submitted.<br>
+    • Copying, right-click, and screenshot key combinations are disabled during the quiz.
+  </div>
+  <div id="regError" class="hidden" style="margin-top:14px;color:#B3402E;font-size:13px;font-weight:600;"></div>
+</div>
+
+<!-- QUIZ -->
+<div id="quizScreen" class="hidden">
+  <div class="top-bar">
+    <div>
+      <div class="phase-label" id="phaseLabel">Read the question</div>
+      <div class="timer" id="phaseTimer">10</div>
+    </div>
+    <div class="vine-progress"><div class="fill" id="progressFill" style="width:0%"></div></div>
+    <div class="qcount" id="qCount">Q1 / 45</div>
+  </div>
+
+  <div class="question-card">
+    <div class="q-num" id="qNumBadge">1</div>
+    <p class="q-text" id="qText"></p>
+    <div id="optionsWrap"></div>
+  </div>
+</div>
+
+<!-- DONE -->
+<div id="doneScreen" class="card hidden">
+  <div class="leaf">🌿</div>
+  <h2 id="doneTitle">Quiz Submitted</h2>
+  <p id="doneMsg">Thank you for taking part in DEMETER 26'. Your responses have been recorded. Results of the first round will be announced by the organising committee.</p>
+</div>
+
+<div id="lockOverlay" class="hidden">
+  <h2>This device has already been used</h2>
+  <p>Only one student may take the quiz per device/browser. If you believe this is an error, please contact the quiz coordinators at your registration desk.</p>
+</div>
+
+<div id="fsGraceOverlay" class="hidden">
+  <h2>You exited full screen</h2>
+  <div class="count" id="fsGraceCount">5</div>
+  <p>Return to full screen now or your quiz will be auto-submitted.</p>
+</div>
+
+<script>
+// ---------------- Firebase ----------------
+const firebaseConfig = {
+  apiKey: "AIzaSyC53ALBwvxPueJgFK8pyPW4L-fe7BJypQQ",
+  authDomain: "cse-analise.firebaseapp.com",
+  databaseURL: "https://cse-analise-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "cse-analise",
+  storageBucket: "cse-analise.firebasestorage.app",
+  messagingSenderId: "757658375864",
+  appId: "1:757658375864:web:a8e237963d9a6933b5864d",
+  measurementId: "G-NPCR5HMMV0"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ---------------- Device identity ----------------
+function getDeviceId(){
+  let id = localStorage.getItem('demeter_device_id');
+  if(!id){
+    id = (crypto.randomUUID ? crypto.randomUUID() : 'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+    localStorage.setItem('demeter_device_id', id);
+  }
+  return id;
+}
+function getFingerprint(){
+  const s = [navigator.userAgent, screen.width+'x'+screen.height, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language].join('|');
+  let hash = 0;
+  for(let i=0;i<s.length;i++){ hash = ((hash<<5)-hash + s.charCodeAt(i))|0; }
+  return 'fp'+Math.abs(hash);
+}
+const deviceId = getDeviceId();
+const fingerprint = getFingerprint();
+
+// ---------------- Timing constants ----------------
+const READ_SECONDS = 10;
+const ANSWER_SECONDS = 20;
+const MAX_VIOLATIONS = 3;
+const FS_GRACE_SECONDS = 5;
+
+// ---------------- State ----------------
+let submissionKey = null;
+let current = 0;
+let answers = {};          // { questionId: { value, fast, at } }
+let shuffledOptions = {};  // questionId -> shuffled array
+let violationCount = 0;
+let submitted = false;
+
+let phase = 'reading';     // 'reading' | 'answering'
+let phaseTimeLeft = READ_SECONDS;
+let questionInterval = null;
+let answerPhaseStartTime = null;
+
+let fsGraceTimer = null;
+let fsGraceSecondsLeft = 0;
+let devtoolsWarned = false;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+// ---------------- Registration ----------------
+const regScreen = document.getElementById('regScreen');
+const quizScreen = document.getElementById('quizScreen');
+const doneScreen = document.getElementById('doneScreen');
+const lockOverlay = document.getElementById('lockOverlay');
+const regError = document.getElementById('regError');
+const startBtn = document.getElementById('startBtn');
+
+async function checkDeviceEligibility(){
+  if(localStorage.getItem('demeter_submitted') === 'true') return false;
+  try{
+    const snap1 = await db.ref('devices/'+deviceId).get();
+    if(snap1.exists()) return false;
+    const snap2 = await db.ref('deviceFingerprints/'+fingerprint).get();
+    if(snap2.exists()) return false;
+  }catch(e){
+    console.error('Eligibility check failed', e);
+  }
+  return true;
+}
+
+(async function init(){
+  const eligible = await checkDeviceEligibility();
+  if(!eligible){
+    regScreen.classList.add('hidden');
+    lockOverlay.classList.remove('hidden');
+  }
+})();
+
+startBtn.addEventListener('click', async ()=>{
+  const name = document.getElementById('fName').value.trim();
+  const school = document.getElementById('fSchool').value.trim();
+  const grade = document.getElementById('fGrade').value.trim();
+  if(!name || !school){
+    regError.textContent = 'Please fill in your name and school.';
+    regError.classList.remove('hidden');
+    return;
+  }
+  startBtn.disabled = true;
+  startBtn.textContent = 'Starting…';
+
+  const eligible = await checkDeviceEligibility();
+  if(!eligible){
+    regScreen.classList.add('hidden');
+    lockOverlay.classList.remove('hidden');
+    return;
+  }
+
+  await db.ref('devices/'+deviceId).set({ reservedAt: Date.now() });
+  await db.ref('deviceFingerprints/'+fingerprint).set({ reservedAt: Date.now() });
+
+  const ref = db.ref('submissions').push();
+  submissionKey = ref.key;
+  await ref.set({
+    name, school, grade,
+    deviceId, fingerprint,
+    status:'in-progress',
+    startTime: Date.now(),
+    endTime:null,
+    answers:{},
+    violations:[],
+    violationCount:0,
+    autoSubmitted:false,
+    userAgent: navigator.userAgent
+  });
+  await db.ref('devices/'+deviceId).update({ submissionKey });
+
+  buildQuestions();
+  regScreen.classList.add('hidden');
+  quizScreen.classList.remove('hidden');
+  requestFullscreenSafe();
+  attachAntiCheat();
+  renderQuestion();
+  startQuestionTimer();
+});
+
+function buildQuestions(){
+  QUESTION_BANK.forEach(q=>{
+    shuffledOptions[q.id] = shuffle(q.options);
+  });
+}
+
+// ---------------- Render ----------------
+const qText = document.getElementById('qText');
+const qNumBadge = document.getElementById('qNumBadge');
+const optionsWrap = document.getElementById('optionsWrap');
+const qCount = document.getElementById('qCount');
+const progressFill = document.getElementById('progressFill');
+const phaseLabel = document.getElementById('phaseLabel');
+const phaseTimer = document.getElementById('phaseTimer');
+
+function renderQuestion(){
+  const q = QUESTION_BANK[current];
+  qNumBadge.textContent = q.id;
+  qText.textContent = q.q;
+  qCount.textContent = `Q${q.id} / ${QUESTION_BANK.length}`;
+  progressFill.style.width = (current/QUESTION_BANK.length*100)+'%';
+
+  optionsWrap.innerHTML='';
+  const letters=['A','B','C','D'];
+  shuffledOptions[q.id].forEach((opt,i)=>{
+    const div = document.createElement('div');
+    const isSelected = answers[q.id] && answers[q.id].value===opt;
+    div.className='option'+(isSelected?' selected':'')+(phase==='reading' ? ' disabled':'');
+    div.innerHTML = `<span class="letter">${letters[i]}</span><span>${opt}</span>`;
+    div.addEventListener('click', ()=>selectAnswer(q.id, opt));
+    optionsWrap.appendChild(div);
+  });
+}
+
+function selectAnswer(qId, opt){
+  if(phase!=='answering' || submitted) return;
+  const elapsed = Date.now() - answerPhaseStartTime;
+  const fast = elapsed <= (ANSWER_SECONDS/2*1000); // answered within first half of the 20s answering window (<=10s)
+  answers[qId] = { value: opt, fast, at: Date.now() };
+  renderQuestion();
+  if(submissionKey){
+    db.ref(`submissions/${submissionKey}/answers/${qId}`).set(answers[qId]);
+  }
+}
+
+// ---------------- Per-question timer ----------------
+function updatePhaseUI(){
+  phaseTimer.textContent = phaseTimeLeft;
+  phaseTimer.classList.toggle('low', phaseTimeLeft<=3);
+  if(phase==='reading'){
+    phaseLabel.textContent = 'Read the question';
+    phaseLabel.classList.remove('answering');
+  } else {
+    phaseLabel.textContent = 'Choose your answer';
+    phaseLabel.classList.add('answering');
+  }
+  renderQuestion();
+}
+
+function startQuestionTimer(){
+  phase='reading';
+  phaseTimeLeft = READ_SECONDS;
+  answerPhaseStartTime = null;
+  updatePhaseUI();
+  clearInterval(questionInterval);
+  questionInterval = setInterval(tick, 1000);
+}
+
+function tick(){
+  if(submitted){ clearInterval(questionInterval); return; }
+  phaseTimeLeft--;
+  if(phaseTimeLeft<=0){
+    if(phase==='reading'){
+      phase='answering';
+      phaseTimeLeft = ANSWER_SECONDS;
+      answerPhaseStartTime = Date.now();
+      updatePhaseUI();
+    } else {
+      clearInterval(questionInterval);
+      advanceQuestion();
+    }
+  } else {
+    updatePhaseUI();
+  }
+}
+
+function advanceQuestion(){
+  if(submitted) return;
+  if(current < QUESTION_BANK.length-1){
+    current++;
+    renderQuestion();
+    startQuestionTimer();
+  } else {
+    finalizeSubmit(false, 'completed');
+  }
+}
+
+// ---------------- Anti-cheat ----------------
+function showToast(msg){
+  let t = document.getElementById('toast');
+  if(t) t.remove();
+  t = document.createElement('div');
+  t.id='toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.remove(); }, 3200);
+}
+
+function logViolation(type){
+  if(submitted) return;
+  violationCount++;
+  const entry = { type, time: Date.now() };
+  if(submissionKey){
+    db.ref(`submissions/${submissionKey}/violations`).push(entry);
+    db.ref(`submissions/${submissionKey}/violationCount`).set(violationCount);
+  }
+  if(violationCount >= MAX_VIOLATIONS){
+    showToast(`Violation ${violationCount}/${MAX_VIOLATIONS}: ${describeViolation(type)}. Auto-submitting…`);
+    finalizeSubmit(true, type);
+  } else {
+    showToast(`Warning ${violationCount}/${MAX_VIOLATIONS}: ${describeViolation(type)}`);
+  }
+}
+
+function describeViolation(type){
+  const map = {
+    'tab-switch':'you left the quiz tab',
+    'window-blur':'the quiz window lost focus',
+    'fullscreen-exit':'you exited full screen',
+    'fullscreen-exit-timeout':'you did not return to full screen in time',
+    'devtools':'developer tools were detected',
+    'blocked-key':'a restricted key combination was pressed',
+    'printscreen':'a screenshot attempt was detected',
+    'completed':'you completed all questions'
+  };
+  return map[type] || type;
+}
+
+function requestFullscreenSafe(){
+  const el = document.documentElement;
+  const req = el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+  if(req) req.call(el).catch(()=>{});
+}
+
+// ---- fullscreen 5-second grace ----
+const fsGraceOverlay = document.getElementById('fsGraceOverlay');
+const fsGraceCount = document.getElementById('fsGraceCount');
+
+function startFullscreenGrace(){
+  cancelFullscreenGrace();
+  fsGraceSecondsLeft = FS_GRACE_SECONDS;
+  fsGraceCount.textContent = fsGraceSecondsLeft;
+  fsGraceOverlay.classList.remove('hidden');
+  fsGraceTimer = setInterval(()=>{
+    fsGraceSecondsLeft--;
+    fsGraceCount.textContent = Math.max(fsGraceSecondsLeft,0);
+    if(fsGraceSecondsLeft<=0){
+      clearInterval(fsGraceTimer);
+      fsGraceTimer=null;
+      finalizeSubmit(true, 'fullscreen-exit-timeout');
+    }
+  },1000);
+}
+function cancelFullscreenGrace(){
+  if(fsGraceTimer){ clearInterval(fsGraceTimer); fsGraceTimer=null; }
+  fsGraceOverlay.classList.add('hidden');
+}
+
+function attachAntiCheat(){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden && !submitted) logViolation('tab-switch');
+  });
+  window.addEventListener('blur', ()=>{
+    if(!submitted) logViolation('window-blur');
+  });
+  document.addEventListener('fullscreenchange', ()=>{
+    if(submitted) return;
+    if(!document.fullscreenElement){
+      logViolation('fullscreen-exit');
+      startFullscreenGrace();
+    } else {
+      cancelFullscreenGrace();
+    }
+  });
+  document.addEventListener('contextmenu', e=>e.preventDefault());
+  ['copy','cut','paste'].forEach(evt=>document.addEventListener(evt, e=>e.preventDefault()));
+  document.addEventListener('keydown', e=>{
+    const blockedCombo =
+      e.key==='F12' ||
+      (e.ctrlKey && e.shiftKey && ['I','J','C','K'].includes(e.key.toUpperCase())) ||
+      (e.ctrlKey && ['u','s','p'].includes(e.key.toLowerCase())) ||
+      (e.metaKey && e.shiftKey);
+    if(blockedCombo){
+      e.preventDefault();
+      logViolation('blocked-key');
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    if(e.key==='PrintScreen'){
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText('').catch(()=>{});
+      }
+      logViolation('printscreen');
+    }
+  });
+  setInterval(()=>{
+    const threshold = 160;
+    const widthDiff = window.outerWidth - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    if((widthDiff>threshold || heightDiff>threshold) && !devtoolsWarned){
+      devtoolsWarned = true;
+      logViolation('devtools');
+      setTimeout(()=>{ devtoolsWarned=false; }, 8000);
+    }
+  }, 1500);
+  window.addEventListener('beforeunload', (e)=>{
+    if(!submitted){
+      logViolation('window-blur');
+      e.preventDefault();
+      e.returnValue='';
+    }
+  });
+}
+
+// ---------------- Submit ----------------
+async function finalizeSubmit(auto, reason){
+  if(submitted) return;
+  submitted = true;
+  clearInterval(questionInterval);
+  cancelFullscreenGrace();
+  if(document.fullscreenElement && document.exitFullscreen){
+    document.exitFullscreen().catch(()=>{});
+  }
+  localStorage.setItem('demeter_submitted','true');
+  if(submissionKey){
+    await db.ref('submissions/'+submissionKey).update({
+      status:'submitted',
+      endTime:Date.now(),
+      autoSubmitted: !!auto,
+      autoSubmitReason: reason||null
+    });
+  }
+  quizScreen.classList.add('hidden');
+  doneScreen.classList.remove('hidden');
+  if(auto && reason!=='completed'){
+    document.getElementById('doneTitle').textContent='Quiz Auto-Submitted';
+    document.getElementById('doneMsg').textContent = `Your quiz was automatically submitted (${describeViolation(reason)}). If you believe this was a mistake, please contact the quiz coordinators.`;
+  }
+}
+</script>
+</body>
+</html>

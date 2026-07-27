@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEMETER 26' — Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --canopy:#173D2E; --moss:#2D6A4F; --fern:#52796F;
+    --paper:#F1F3EA; --gold:#D9A441; --bark:#3A2E1F; --alert:#B3402E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Work Sans',Arial,sans-serif;background:var(--paper);color:var(--bark);}
+  h1,h2{font-family:'Fraunces',Georgia,serif;color:var(--canopy);}
+  .hidden{display:none !important;}
+
+  /* login */
+  #loginScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+  }
+  .login-card{
+    background:#fff;padding:36px;border-radius:16px;box-shadow:0 12px 40px rgba(23,61,46,.12);
+    width:100%;max-width:380px;
+  }
+  .login-card input{
+    width:100%;padding:12px;margin:8px 0;border:1.5px solid #DDE4D8;border-radius:8px;font-size:14px;
+  }
+  .login-card button{
+    width:100%;padding:12px;background:var(--canopy);color:#fff;border:none;border-radius:8px;
+    font-weight:600;margin-top:12px;cursor:pointer;
+  }
+  #loginError{color:var(--alert);font-size:13px;margin-top:8px;}
+
+  /* dashboard */
+  #dash{display:none;padding:24px;max-width:1200px;margin:0 auto;}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+  .stat{background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 6px 18px rgba(23,61,46,.08);min-width:130px;}
+  .stat .num{font-family:'Fraunces',Georgia,serif;font-size:26px;color:var(--canopy);}
+  .stat .label{font-size:12px;color:var(--fern);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+  .toolbar input, .toolbar select{padding:9px 12px;border:1.5px solid #DDE4D8;border-radius:8px;font-size:13px;}
+  .btn{padding:9px 16px;border-radius:8px;border:none;background:var(--moss);color:#fff;font-weight:600;font-size:13px;cursor:pointer;}
+  .btn.outline{background:#fff;border:1.5px solid var(--moss);color:var(--moss);}
+  .btn.alert{background:var(--alert);}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(23,61,46,.06);}
+  th,td{padding:11px 14px;text-align:left;font-size:13px;border-bottom:1px solid #EEF1E8;}
+  th{background:#F5F7EF;color:var(--fern);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
+  tr:hover{background:#FAFBF6;cursor:pointer;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.ok{background:#E3F1E8;color:var(--moss);}
+  .badge.warn{background:#FBE9E2;color:var(--alert);}
+  .badge.mid{background:#FCF3DC;color:#946B18;}
+
+  /* modal */
+  #modalBg{position:fixed;inset:0;background:rgba(23,32,25,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  #modal{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:88vh;overflow:auto;padding:28px;}
+  #modal h2{margin-top:0;}
+  .qa-row{padding:12px 0;border-bottom:1px solid #EEF1E8;}
+  .qa-row .qtxt{font-weight:600;font-size:14px;margin-bottom:6px;}
+  .qa-row .ans{font-size:13px;}
+  .ans.correct{color:var(--moss);font-weight:700;}
+  .ans.wrong{color:var(--alert);font-weight:700;}
+  .ans.unanswered{color:#999;font-style:italic;}
+  .viol-item{font-size:12px;background:#FBE9E2;color:var(--alert);border-radius:6px;padding:6px 10px;margin-bottom:6px;}
+  #modalClose{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--fern);}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h1 style="margin-top:0;">DEMETER 26'</h1>
+    <p style="color:var(--fern);margin-top:-8px;">Admin sign in</p>
+    <input id="loginEmail" type="email" placeholder="Admin email" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn">Sign in</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<div id="dash">
+  <div class="header">
+    <h1>DEMETER 26' Results</h1>
+    <button class="btn outline" id="logoutBtn">Sign out</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="label">Submitted</div></div>
+    <div class="stat"><div class="num" id="statInProgress">0</div><div class="label">In progress</div></div>
+    <div class="stat"><div class="num" id="statAvg">0</div><div class="label">Avg score</div></div>
+    <div class="stat"><div class="num" id="statAuto">0</div><div class="label">Auto-submitted</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search name or school…">
+    <select id="sortSelect">
+      <option value="score-desc">Score (high→low)</option>
+      <option value="score-asc">Score (low→high)</option>
+      <option value="time-desc">Newest first</option>
+      <option value="violations-desc">Most violations</option>
+    </select>
+    <button class="btn" id="exportBtn">Export CSV</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Name</th><th>School</th><th>Grade</th><th>Score /100</th><th>Fast</th><th>Violations</th><th>Status</th><th>Duration</th></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div id="modalBg">
+  <div id="modal">
+    <button id="modalClose">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC53ALBwvxPueJgFK8pyPW4L-fe7BJypQQ",
+  authDomain: "cse-analise.firebaseapp.com",
+  databaseURL: "https://cse-analise-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "cse-analise",
+  storageBucket: "cse-analise.firebasestorage.app",
+  messagingSenderId: "757658375864",
+  appId: "1:757658375864:web:a8e237963d9a6933b5864d",
+  measurementId: "G-NPCR5HMMV0"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// ---------------------------------------------------------------
+// Answer key lives ONLY here (admin.html is never sent to students)
+// ---------------------------------------------------------------
+const ANSWER_KEY = {
+  1:"23rd of March", 2:"197", 3:"Citarum River", 4:"Ionian Sea",
+  5:"Using Old Refrigerators", 6:"The Central and the Eastern equatorial Pacific Ocean",
+  7:"Minamata Convention - Japan", 8:"Dire Wolf", 9:"The Ceylon Rose",
+  10:"Western Ghats", 11:"Amu Darya, Syr Darya and the Jordan River",
+  12:"Challenger Deep", 13:"700 years", 14:"Lake Baikal - Russia",
+  15:"The salt water crocodile", 16:"Jacobabad", 17:"Yamuna River and Ganga River",
+  18:"Panthera pardus sinhaleyus", 19:"Bulathsinhala", 20:"Convection Currents",
+  21:"Galapagos Archipelago", 22:"Aldabra Giant Tortoise", 23:"Green Turtle",
+  24:"Chernobyl - 1986", 25:"South Korea", 26:"Meghalaya",
+  27:"2.7 Million Ha", 28:"South China Tiger", 29:"Paleoloxodon namadicus",
+  30:"Sumatran Elephant", 31:"Muthurajawela", 32:"1981",
+  33:"Bangladesh", 34:"Silavathurai", 35:"Namami Gange",
+  36:"Colombo", 37:"Sudd", 38:"King Dutugemunu",
+  39:"Mullaitivu and Trincomalee", 40:"Victoria", 41:"Sulaiman and Indus",
+  42:"Gal Oya", 43:"Adenosine Tri Pospate", 44:"Water Spinach and Ceylon Toque Macaque",
+  45:"East Africa"
+};
+const QUESTION_TEXT = {
+  1:"When is the World Meteorology Day?", 2:"How many countries signed the Montreal Protocol?",
+  3:"The most polluted river (main water resource of Jakarta)", 4:"Sea connecting the Adriatic Sea to the Mediterranean Sea",
+  5:"A way CFC is released to the atmosphere", 6:"Where El-Nino happens",
+  7:"Convention to protect against mercury releases, and where signed", 8:"Pre-historic animal revived by scientists",
+  9:"National butterfly of Sri Lanka", 10:"Biodiversity hotspot in India",
+  11:"Main water sources of the Aral Sea and Dead Sea", 12:"Deepest point in the Mariana Trench",
+  13:"Years to dissolve a toothbrush", 14:"Largest freshwater lake in Asia & country",
+  15:"Largest type of crocodile", 16:"Hottest city in Asia",
+  17:"Pair of rivers starting from glaciers", 18:"Scientific name of the Sri Lankan Leopard",
+  19:"Location of Walawwatta Wagurana marsh forest", 20:"Reason for tectonic plate movement",
+  21:"Island that helped Darwin's evolution studies", 22:"Tortoise with longest life expectancy",
+  23:"Turtle visiting Sri Lankan coast most for laying eggs", 24:"Most devastated nuclear plant explosion & year",
+  25:"Country evaluated by UNEP for forest fire suppression", 26:"Administrative state with highest rainfall",
+  27:"Hectares of forest cover in Sri Lanka", 28:"Tiger sub-species with ~30 left",
+  29:"Closest ancient relative to the Sri Lankan Elephant", 30:"Critically endangered Asian elephant sub-species",
+  31:"Largest wetland in Sri Lanka", 32:"Year Central Environmental Authority established",
+  33:"Most polluted country (Air Pollution Index)", 34:"Sea shore in Sri Lanka known for pearls",
+  35:"India's river-saving project", 36:"City known as 'Ramsar Wetland City'",
+  37:"Largest marshland in the world", 38:"King who implemented the 'Maghatha Law'",
+  39:"Districts of Bay of Koddiyar and Nandikadal Lagoon", 40:"Largest hydro-power plant in Sri Lanka",
+  41:"Mountain range and river in Pakistan", 42:"First farming colony in Sri Lanka",
+  43:"ATP expansion / anaerobic respiration result", 44:"Ipomea aquatica and Macaca sinica",
+  45:"Region with high rainfall due to El-Nino"
+};
+const TOTAL_Q = Object.keys(ANSWER_KEY).length;
+
+// Marking scheme:
+//  Q1-15  = 1 mark each   (15)
+//  Q16-35 = 2 marks each  (40)
+//  Q36-45 = 4 marks each  (40)
+//  = 95 raw marks, + 5 bonus marks for students who answered
+//    more than 25 of the 45 questions within the first 10s of the
+//    20s answering window ("fast" answers) = 100 max.
+const FAST_BONUS_THRESHOLD = 25;
+const FAST_BONUS_MARKS = 5;
+function marksForQuestion(id){
+  if(id<=15) return 1;
+  if(id<=35) return 2;
+  return 4;
+}
+
+// ---------------- Auth ----------------
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  document.getElementById('loginError').textContent='';
+  auth.signInWithEmailAndPassword(email, pass).catch(err=>{
+    document.getElementById('loginError').textContent = 'Sign-in failed: '+err.message;
+  });
+});
+document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut());
+
+let allSubmissions = {};
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('dash').style.display='block';
+    listenSubmissions();
+  } else {
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('dash').style.display='none';
+  }
+});
+
+function scoreSubmission(sub){
+  let rawScore=0;
+  let fastCount=0;
+  const details=[];
+  for(let i=1;i<=TOTAL_Q;i++){
+    const a = sub.answers ? sub.answers[i] : undefined;
+    // support both the new {value,fast} shape and legacy plain-string answers
+    const given = a && typeof a==='object' ? a.value : a;
+    const fast = !!(a && typeof a==='object' && a.fast);
+    const correct = ANSWER_KEY[i];
+    const marks = marksForQuestion(i);
+    const isCorrect = given!==undefined && given===correct;
+    if(isCorrect) rawScore += marks;
+    if(fast) fastCount++;
+    details.push({id:i, qtext:QUESTION_TEXT[i], given, correct, isCorrect, marks, fast});
+  }
+  const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0;
+  return { rawScore, bonus, score: rawScore+bonus, fastCount, details, maxRaw:95, maxTotal:100 };
+}
+
+function listenSubmissions(){
+  db.ref('submissions').on('value', snap=>{
+    allSubmissions = snap.val() || {};
+    renderTable();
+  });
+}
+
+function renderTable(){
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML='';
+
+  let rows = Object.entries(allSubmissions).map(([key,sub])=>{
+    const {score} = scoreSubmission(sub);
+    const duration = sub.endTime && sub.startTime ? Math.round((sub.endTime-sub.startTime)/1000) : null;
+    return {key, sub, score, duration};
+  });
+
+  if(search){
+    rows = rows.filter(r=>
+      (r.sub.name||'').toLowerCase().includes(search) ||
+      (r.sub.school||'').toLowerCase().includes(search)
+    );
+  }
+
+  rows.sort((a,b)=>{
+    if(sort==='score-desc') return b.score-a.score;
+    if(sort==='score-asc') return a.score-b.score;
+    if(sort==='violations-desc') return (b.sub.violationCount||0)-(a.sub.violationCount||0);
+    if(sort==='time-desc') return (b.sub.startTime||0)-(a.sub.startTime||0);
+    return 0;
+  });
+
+  let submittedCount=0, inProgress=0, autoCount=0, scoreSum=0;
+  Object.values(allSubmissions).forEach(sub=>{
+    if(sub.status==='submitted'){
+      submittedCount++;
+      scoreSum += scoreSubmission(sub).score;
+      if(sub.autoSubmitted) autoCount++;
+    } else inProgress++;
+  });
+  document.getElementById('statTotal').textContent = submittedCount;
+  document.getElementById('statInProgress').textContent = inProgress;
+  document.getElementById('statAvg').textContent = submittedCount ? (scoreSum/submittedCount).toFixed(1) : '0';
+  document.getElementById('statAuto').textContent = autoCount;
+
+  rows.forEach(({key,sub,score,duration})=>{
+    const tr = document.createElement('tr');
+    const violBadgeClass = (sub.violationCount||0)===0 ? 'ok' : (sub.violationCount>=3?'warn':'mid');
+    const statusBadge = sub.status==='submitted'
+      ? (sub.autoSubmitted ? '<span class="badge warn">Auto-submitted</span>' : '<span class="badge ok">Submitted</span>')
+      : '<span class="badge mid">In progress</span>';
+    const {fastCount, bonus} = scoreSubmission(sub);
+    tr.innerHTML = `
+      <td>${escapeHtml(sub.name||'—')}</td>
+      <td>${escapeHtml(sub.school||'—')}</td>
+      <td>${escapeHtml(sub.grade||'—')}</td>
+      <td><b>${score}</b> / 100${bonus?' <span class="badge ok">+'+bonus+'</span>':''}</td>
+      <td>${fastCount}/45</td>
+      <td><span class="badge ${violBadgeClass}">${sub.violationCount||0}</span></td>
+      <td>${statusBadge}</td>
+      <td>${duration!==null ? duration+'s' : '—'}</td>
+    `;
+    tr.addEventListener('click', ()=>openModal(key));
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('searchBox').addEventListener('input', renderTable);
+document.getElementById('sortSelect').addEventListener('change', renderTable);
+
+// ---------------- Modal ----------------
+function openModal(key){
+  const sub = allSubmissions[key];
+  const {score, rawScore, bonus, fastCount, details} = scoreSubmission(sub);
+  const violations = sub.violations ? Object.values(sub.violations) : [];
+
+  let html = `<h2>${escapeHtml(sub.name)} — ${score}/100</h2>
+    <p style="color:var(--fern);margin-top:-8px;">${escapeHtml(sub.school)} · ${escapeHtml(sub.grade)}</p>
+    <p style="font-size:13px;color:var(--bark);">Raw: ${rawScore}/95 &nbsp;·&nbsp; Fast answers: ${fastCount}/45 (need >25 for bonus) &nbsp;·&nbsp; Bonus: ${bonus? '+'+bonus : '0'}</p>`;
+
+  if(violations.length){
+    html += `<h3 style="font-size:15px;">Violations (${violations.length})</h3>`;
+    violations.forEach(v=>{
+      html += `<div class="viol-item">${v.type} — ${new Date(v.time).toLocaleTimeString()}</div>`;
+    });
+  }
+
+  html += `<div style="margin-top:10px;">
+    <button class="btn alert" onclick="resetDevice('${sub.deviceId}','${sub.fingerprint||''}')">Allow this device to retake</button>
+  </div>`;
+
+  html += `<h3 style="font-size:15px;margin-top:18px;">Answers</h3>`;
+  details.forEach(d=>{
+    const cls = d.given===undefined ? 'unanswered' : (d.isCorrect ? 'correct' : 'wrong');
+    const givenText = d.given===undefined ? 'No answer' : d.given;
+    html += `<div class="qa-row">
+      <div class="qtxt">${d.id}. ${escapeHtml(d.qtext)} <span style="color:var(--fern);font-weight:400;">(${d.marks} mark${d.marks>1?'s':''}${d.fast?' · fast':''})</span></div>
+      <div class="ans ${cls}">Given: ${escapeHtml(givenText)}</div>
+      ${!d.isCorrect ? `<div class="ans" style="color:#555;">Correct: ${escapeHtml(d.correct)}</div>` : ''}
+    </div>`;
+  });
+
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalBg').style.display='flex';
+}
+document.getElementById('modalClose').addEventListener('click', ()=>{
+  document.getElementById('modalBg').style.display='none';
+});
+document.getElementById('modalBg').addEventListener('click', e=>{
+  if(e.target.id==='modalBg') document.getElementById('modalBg').style.display='none';
+});
+
+window.resetDevice = function(deviceId, fingerprint){
+  if(!confirm('Allow this device to take the quiz again? This removes the device lock only — the previous submission stays on record.')) return;
+  db.ref('devices/'+deviceId).remove();
+  if(fingerprint) db.ref('deviceFingerprints/'+fingerprint).remove();
+  alert('Device unlocked. The student must also clear browser storage or use a different browser tab profile, since the local device flag persists in their browser only.');
+};
+
+// ---------------- CSV export ----------------
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const rows = [['Name','School','Grade','Score /100','Raw /95','Bonus','Fast Answers','Violations','Status','Auto-Submitted','Start Time','End Time']];
+  Object.values(allSubmissions).forEach(sub=>{
+    const {score, rawScore, bonus, fastCount} = scoreSubmission(sub);
+    rows.push([
+      sub.name, sub.school, sub.grade, score, rawScore, bonus, fastCount+'/45', sub.violationCount||0,
+      sub.status, sub.autoSubmitted?'Yes':'No',
+      sub.startTime?new Date(sub.startTime).toISOString():'',
+      sub.endTime?new Date(sub.endTime).toISOString():''
+    ]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='demeter26_results.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
