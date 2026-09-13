@@ -157,7 +157,18 @@ const ANSWER_KEY = {
   36:"Colombo", 37:"Sudd", 38:"King Dutugemunu",
   39:"Mullaitivu and Trincomalee", 40:"Victoria", 41:"Sulaiman and Indus",
   42:"Gal Oya", 43:"Adenosine Tri Pospate", 44:"Water Spinach and Ceylon Toque Macaque",
-  45:"East Africa"
+  45:"East Africa",
+  // Q46: marker on the map sits ~20km from Kanneliya vs ~38km from Sinharaja
+  // (measured from the marker's position relative to the coastline) — worth a
+  // quick visual double-check against your source map before go-live.
+  // Q47: photo shows a terrestrial weed with clustered white flower heads —
+  // not aquatic (rules out Water Hyacinth) and not the pink/purple star
+  // flowers of Philippine Firework, so Parthenium is the match.
+  46:"Kanneliya - Low Country Tropical Rainforest",
+  47:"Pathenium",
+  48:"Fukushima - Japan",
+  49:"Bar Reef - Kalpitiya Peninsula",
+  50:"From east to west, piling up warm surface water in the western Pacific near Indonesia and Australia."
 };
 const QUESTION_TEXT = {
   1:"When is the World Meteorology Day?", 2:"How many countries signed the Montreal Protocol?",
@@ -182,17 +193,20 @@ const QUESTION_TEXT = {
   39:"Districts of Bay of Koddiyar and Nandikadal Lagoon", 40:"Largest hydro-power plant in Sri Lanka",
   41:"Mountain range and river in Pakistan", 42:"First farming colony in Sri Lanka",
   43:"ATP expansion / anaerobic respiration result", 44:"Ipomea aquatica and Macaca sinica",
-  45:"Region with high rainfall due to El-Nino"
+  45:"Region with high rainfall due to El-Nino",
+  46:"Forest shown on the map & its type", 47:"Invasive flora in the picture",
+  48:"2011 nuclear plant explosion — plant & location", 49:"Largest coral reef in Sri Lanka",
+  50:"Trade wind direction & effect on sea surface temperature (normal conditions)"
 };
 const TOTAL_Q = Object.keys(ANSWER_KEY).length;
 
 // Marking scheme:
 //  Q1-15  = 1 mark each   (15)
 //  Q16-35 = 2 marks each  (40)
-//  Q36-45 = 4 marks each  (40)
-//  = 95 raw marks, + 5 bonus marks for students who answered
-//    more than 25 of the 45 questions within the first 10s of the
-//    20s answering window ("fast" answers) = 100 max.
+//  Q36-50 = 4 marks each  (60)
+//  = 115 raw marks, + 5 bonus marks for students who answered
+//    more than 25 of the 50 questions within the first 10s of the
+//    20s answering window ("fast" answers) = 120 max.
 const FAST_BONUS_THRESHOLD = 25;
 const FAST_BONUS_MARKS = 5;
 function marksForQuestion(id){
