@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="questions-data.js"></script>
+<script src="translations-si.js"></script>
 <style>
   :root{
     --canopy:#173D2E;
@@ -97,9 +98,6 @@
   .lang-switch{display:flex;gap:8px;margin-bottom:18px;}
   .lang-btn{flex:1;padding:10px 12px;border-radius:10px;border:2px solid #DCE3D3;background:#fff;color:var(--bark);font-family:var(--font-display);font-size:14px;cursor:pointer;transition:.15s;}
   .lang-btn.active{border-color:var(--canopy);background:var(--canopy);color:#fff;}
-  .lang-status{font-size:12px;color:var(--fern);margin:-10px 0 16px;display:flex;align-items:center;gap:6px;}
-  .lang-status .spin{width:12px;height:12px;border:2px solid #C9D4BC;border-top-color:var(--canopy);border-radius:50%;animation:spin .8s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -117,7 +115,6 @@
     <button type="button" class="lang-btn active" id="langEnBtn">English</button>
     <button type="button" class="lang-btn" id="langSiBtn">සිංහල</button>
   </div>
-  <div class="lang-status hidden" id="langStatus"><span class="spin"></span><span id="langStatusText">Translating to Sinhala…</span></div>
 
   <label for="fName" id="lblName">Full Name *</label>
   <input id="fName" type="text" placeholder="e.g. K. D. Perera" autocomplete="off">
@@ -247,94 +244,18 @@ function shuffle(arr){
   return a;
 }
 
-// ---------------- Live translation (English <-> Sinhala) ----------------
-// Uses the free MyMemory translation API at runtime — nothing is pre-translated
-// and shipped in this file. English is the source of truth for scoring; the
-// Sinhala text is only ever used for display.
+// ---------------- Language (English <-> Sinhala) ----------------
+// Uses the static TRANSLATIONS_SI / UI_SI dictionaries from translations-si.js
+// — no network calls, no machine translation at quiz time. English option
+// text always stays the canonical "value" used for scoring; Sinhala (when
+// selected) is only ever the on-screen label.
 let quizLang = 'en'; // 'en' | 'si'
-const translationCache = {};   // English string -> Sinhala string
-const DELIM = '\n@@@\n';
-const TRANSLATE_ENDPOINT = 'https://api.mymemory.translated.net/get';
 
-async function translateOne(text){
-  if(!text || !text.trim()) return text;
-  if(translationCache[text]) return translationCache[text];
-  try{
-    const res = await fetch(`${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=en|si`);
-    const data = await res.json();
-    const translated = data && data.responseData && data.responseData.translatedText;
-    if(translated){ translationCache[text] = translated; return translated; }
-  }catch(e){ console.warn('translate failed for', text, e); }
-  return text; // fall back to English if the API is unreachable
+function t(key){
+  if(quizLang==='si' && UI_SI[key]) return UI_SI[key];
+  return UI_EN[key];
 }
 
-// Batches several short strings into one request (joined by a delimiter the
-// translator is unlikely to alter), to keep the request count reasonable for
-// ~50 questions. Falls back to per-string requests if a batch comes back
-// misaligned.
-async function translateBatch(list){
-  const CHUNK_BUDGET = 420; // stay well under MyMemory's per-request limit
-  const chunks = [];
-  let cur = [], curLen = 0;
-  for(const t of list){
-    const len = (t||'').length + DELIM.length;
-    if(curLen + len > CHUNK_BUDGET && cur.length){ chunks.push(cur); cur=[]; curLen=0; }
-    cur.push(t||''); curLen += len;
-  }
-  if(cur.length) chunks.push(cur);
-
-  const results = [];
-  for(const chunk of chunks){
-    const joined = chunk.join(DELIM);
-    if(translationCache[joined]){
-      results.push(...translationCache[joined].split(DELIM));
-      continue;
-    }
-    try{
-      const res = await fetch(`${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(joined)}&langpair=en|si`);
-      const data = await res.json();
-      const translated = (data && data.responseData && data.responseData.translatedText) || '';
-      const parts = translated.split(DELIM).map(s=>s.trim());
-      if(parts.length === chunk.length){
-        translationCache[joined] = translated;
-        results.push(...parts);
-      } else {
-        // batch got mangled — translate this chunk's strings one at a time
-        for(const t of chunk) results.push(await translateOne(t));
-      }
-    }catch(e){
-      console.warn('batch translate failed', e);
-      results.push(...chunk); // fall back to English for this chunk
-    }
-  }
-  return results;
-}
-
-// Sinhala versions, filled in lazily the first time Sinhala is selected.
-let sinhalaBank = null;    // { [questionId]: { q, options[] } }
-let sinhalaBankPromise = null;
-async function prepareSinhalaBank(){
-  if(sinhalaBank) return sinhalaBank;
-  if(sinhalaBankPromise) return sinhalaBankPromise;
-  sinhalaBankPromise = (async ()=>{
-    const flat = [];
-    QUESTION_BANK.forEach(q=>{ flat.push(q.q); q.options.forEach(o=>flat.push(o)); });
-    const translated = await translateBatch(flat);
-    let idx = 0;
-    const bank = {};
-    QUESTION_BANK.forEach(q=>{
-      const tq = translated[idx++];
-      const topts = q.options.map(()=>translated[idx++]);
-      bank[q.id] = { q: tq, options: topts };
-    });
-    sinhalaBank = bank;
-    return bank;
-  })();
-  return sinhalaBankPromise;
-}
-
-// A handful of interface strings — buttons, phase labels, done-screen text.
-// Translated the same way, on demand, the first time Sinhala is picked.
 const UI_EN = {
   startBtn: 'Start Quiz',
   starting: 'Starting…',
@@ -360,24 +281,6 @@ const UI_EN = {
   rule8: 'Copying, right-click, and screenshot key combinations are disabled during the quiz.',
   regErrorMissing: 'Please fill in your name and school.'
 };
-let uiSi = {};
-let uiSiPromise = null;
-async function prepareUiSi(){
-  if(Object.keys(uiSi).length) return uiSi;
-  if(uiSiPromise) return uiSiPromise;
-  uiSiPromise = (async ()=>{
-    const keys = Object.keys(UI_EN);
-    const vals = keys.map(k=>UI_EN[k]);
-    const translated = await translateBatch(vals);
-    keys.forEach((k,i)=>{ uiSi[k]=translated[i]; });
-    return uiSi;
-  })();
-  return uiSiPromise;
-}
-function t(key){
-  if(quizLang==='si' && uiSi[key]) return uiSi[key];
-  return UI_EN[key];
-}
 
 function applyStaticUiLang(){
   document.getElementById('lblName').textContent = t('lblName');
@@ -391,29 +294,19 @@ function applyStaticUiLang(){
 
 const langEnBtn = document.getElementById('langEnBtn');
 const langSiBtn = document.getElementById('langSiBtn');
-const langStatus = document.getElementById('langStatus');
-const langStatusText = document.getElementById('langStatusText');
 
 langEnBtn.addEventListener('click', ()=>{
   quizLang = 'en';
   langEnBtn.classList.add('active');
   langSiBtn.classList.remove('active');
-  langStatus.classList.add('hidden');
   applyStaticUiLang();
 });
 
-langSiBtn.addEventListener('click', async ()=>{
+langSiBtn.addEventListener('click', ()=>{
   quizLang = 'si';
   langSiBtn.classList.add('active');
   langEnBtn.classList.remove('active');
-  langStatusText.textContent = 'Translating to Sinhala…';
-  langStatus.classList.remove('hidden');
-  try{
-    await Promise.all([prepareSinhalaBank(), prepareUiSi()]);
-  } finally {
-    langStatus.classList.add('hidden');
-  }
-  if(quizLang==='si') applyStaticUiLang();
+  applyStaticUiLang();
 });
 
 // ---------------- Registration ----------------
@@ -457,13 +350,6 @@ startBtn.addEventListener('click', async ()=>{
   startBtn.disabled = true;
   startBtn.textContent = t('starting');
 
-  if(quizLang==='si'){
-    langStatusText.textContent = 'Translating to Sinhala…';
-    langStatus.classList.remove('hidden');
-    await Promise.all([prepareSinhalaBank(), prepareUiSi()]);
-    langStatus.classList.add('hidden');
-  }
-
   const eligible = await checkDeviceEligibility();
   if(!eligible){
     regScreen.classList.add('hidden');
@@ -506,7 +392,7 @@ startBtn.addEventListener('click', async ()=>{
 // "label" is what's shown on screen, in whichever language is selected.
 function buildQuestions(){
   QUESTION_BANK.forEach(q=>{
-    const labels = (quizLang==='si' && sinhalaBank && sinhalaBank[q.id]) ? sinhalaBank[q.id].options : q.options;
+    const labels = (quizLang==='si' && TRANSLATIONS_SI[q.id]) ? TRANSLATIONS_SI[q.id].options : q.options;
     const pairs = q.options.map((val,i)=>({ value: val, label: labels[i] || val }));
     shuffledOptions[q.id] = shuffle(pairs);
   });
@@ -524,7 +410,7 @@ const phaseTimer = document.getElementById('phaseTimer');
 
 function renderQuestion(){
   const q = QUESTION_BANK[current];
-  const translatedQ = (quizLang==='si' && sinhalaBank && sinhalaBank[q.id]) ? sinhalaBank[q.id].q : q.q;
+  const translatedQ = (quizLang==='si' && TRANSLATIONS_SI[q.id]) ? TRANSLATIONS_SI[q.id].q : q.q;
   qNumBadge.textContent = q.id;
   qText.textContent = translatedQ;
   qCount.textContent = `Q${q.id} / ${QUESTION_BANK.length}`;
