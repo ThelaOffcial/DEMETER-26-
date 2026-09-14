@@ -4,81 +4,192 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DEMETER 26' — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
-    --canopy:#173D2E; --moss:#2D6A4F; --fern:#52796F;
-    --paper:#F1F3EA; --gold:#D9A441; --bark:#3A2E1F; --alert:#B3402E;
+    --canopy:#173D2E; --canopy-dim:#0F2A20; --moss:#2D6A4F; --fern:#52796F; --fern-soft:#7C9A8E;
+    --paper:#F1F3EA; --paper-dim:#E7EBDF; --gold:#D9A441; --bark:#3A2E1F; --alert:#B3402E;
+    --line:#DFE5D6; --card:#FFFFFF;
+    --shadow-sm:0 2px 8px rgba(23,61,46,.06);
+    --shadow-md:0 10px 30px rgba(23,61,46,.10);
+    --shadow-lg:0 20px 60px rgba(15,42,32,.18);
+    --radius:14px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Work Sans',Arial,sans-serif;background:var(--paper);color:var(--bark);}
-  h1,h2{font-family:'Fraunces',Georgia,serif;color:var(--canopy);}
+  ::selection{background:var(--gold);color:var(--canopy-dim);}
+  body{
+    margin:0;font-family:'Work Sans',Arial,sans-serif;color:var(--bark);
+    background:
+      radial-gradient(1100px 500px at 100% -10%, rgba(217,164,65,.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(45,106,79,.12), transparent 55%),
+      var(--paper);
+    min-height:100vh;
+  }
+  h1,h2{font-family:'Fraunces',Georgia,serif;color:var(--canopy);letter-spacing:-.01em;}
   .hidden{display:none !important;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:#C9D2BE;border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
 
-  /* login */
+  /* ---------------- login ---------------- */
   #loginScreen{
-    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;
   }
+  #loginScreen::before{
+    content:"";position:absolute;inset:0;z-index:0;
+    background:
+      radial-gradient(700px 380px at 15% 20%, rgba(45,106,79,.20), transparent 60%),
+      radial-gradient(600px 400px at 85% 85%, rgba(217,164,65,.18), transparent 60%),
+      linear-gradient(160deg, var(--canopy) 0%, var(--canopy-dim) 100%);
+  }
+  .login-mark{
+    position:relative;z-index:1;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .login-mark svg{filter:drop-shadow(0 6px 14px rgba(0,0,0,.25));}
+  .login-mark .tag{color:rgba(241,243,234,.72);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;}
   .login-card{
-    background:#fff;padding:36px;border-radius:16px;box-shadow:0 12px 40px rgba(23,61,46,.12);
-    width:100%;max-width:380px;
+    position:relative;z-index:1;
+    background:var(--card);padding:38px 34px 32px;border-radius:20px;box-shadow:var(--shadow-lg);
+    width:100%;max-width:380px;border:1px solid rgba(255,255,255,.6);
   }
+  .login-card h1{margin:0 0 2px;font-size:26px;}
+  .login-card .sub{color:var(--fern);margin:0 0 22px;font-size:13.5px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--fern);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
   .login-card input{
-    width:100%;padding:12px;margin:8px 0;border:1.5px solid #DDE4D8;border-radius:8px;font-size:14px;
+    width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;
+    font-family:inherit;background:#FAFBF6;transition:border-color .15s, box-shadow .15s, background .15s;
+  }
+  .login-card input:focus{
+    outline:none;border-color:var(--moss);background:#fff;box-shadow:0 0 0 4px rgba(45,106,79,.12);
   }
   .login-card button{
-    width:100%;padding:12px;background:var(--canopy);color:#fff;border:none;border-radius:8px;
-    font-weight:600;margin-top:12px;cursor:pointer;
+    width:100%;padding:13px;background:var(--canopy);color:#fff;border:none;border-radius:10px;
+    font-weight:600;font-size:14px;margin-top:6px;cursor:pointer;transition:background .15s, transform .1s;
   }
-  #loginError{color:var(--alert);font-size:13px;margin-top:8px;}
+  .login-card button:hover{background:var(--canopy-dim);}
+  .login-card button:active{transform:translateY(1px);}
+  #loginError{color:var(--alert);font-size:13px;margin-top:10px;min-height:1px;}
 
-  /* dashboard */
-  #dash{display:none;padding:24px;max-width:1200px;margin:0 auto;}
-  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
-  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
-  .stat{background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 6px 18px rgba(23,61,46,.08);min-width:130px;}
-  .stat .num{font-family:'Fraunces',Georgia,serif;font-size:26px;color:var(--canopy);}
-  .stat .label{font-size:12px;color:var(--fern);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+  /* ---------------- dashboard ---------------- */
+  #dash{display:none;padding:28px 28px 60px;max-width:1240px;margin:0 auto;}
+  .header{
+    display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px;flex-wrap:wrap;gap:14px;
+    padding-bottom:18px;border-bottom:1px solid var(--line);
+  }
+  .header .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+  .header h1{margin:0;font-size:30px;}
+  .header .sub{margin:4px 0 0;color:var(--fern);font-size:13.5px;}
 
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
-  .toolbar input, .toolbar select{padding:9px 12px;border:1.5px solid #DDE4D8;border-radius:8px;font-size:13px;}
-  .btn{padding:9px 16px;border-radius:8px;border:none;background:var(--moss);color:#fff;font-weight:600;font-size:13px;cursor:pointer;}
-  .btn.outline{background:#fff;border:1.5px solid var(--moss);color:var(--moss);}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px;}
+  .stat{
+    background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);
+    border:1px solid var(--line);position:relative;overflow:hidden;transition:box-shadow .18s, transform .18s;
+  }
+  .stat:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+  .stat::after{
+    content:"";position:absolute;right:-18px;top:-18px;width:70px;height:70px;border-radius:50%;
+    background:radial-gradient(circle, rgba(45,106,79,.10), transparent 70%);
+  }
+  .stat .num{font-family:'Fraunces',Georgia,serif;font-size:30px;color:var(--canopy);line-height:1;}
+  .stat .label{margin-top:6px;font-size:11.5px;color:var(--fern);font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+  .toolbar input, .toolbar select{
+    padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:13.5px;
+    font-family:inherit;background:var(--card);transition:border-color .15s, box-shadow .15s;
+  }
+  .toolbar input{min-width:220px;flex:1 1 220px;}
+  .toolbar input:focus, .toolbar select:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 4px rgba(45,106,79,.10);}
+  .btn{
+    padding:10px 18px;border-radius:10px;border:none;background:var(--moss);color:#fff;font-weight:600;font-size:13.5px;
+    cursor:pointer;font-family:inherit;transition:background .15s, transform .1s, box-shadow .15s;box-shadow:var(--shadow-sm);
+  }
+  .btn:hover{background:var(--canopy);}
+  .btn:active{transform:translateY(1px);}
+  .btn.outline{background:transparent;border:1.5px solid var(--line);color:var(--fern);box-shadow:none;}
+  .btn.outline:hover{border-color:var(--moss);color:var(--moss);background:rgba(45,106,79,.06);}
   .btn.alert{background:var(--alert);}
+  .btn.alert:hover{background:#8E3123;}
 
-  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(23,61,46,.06);}
-  th,td{padding:11px 14px;text-align:left;font-size:13px;border-bottom:1px solid #EEF1E8;}
-  th{background:#F5F7EF;color:var(--fern);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
-  tr:hover{background:#FAFBF6;cursor:pointer;}
-  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .table-wrap{
+    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;
+  }
+  table{width:100%;border-collapse:collapse;}
+  th,td{padding:13px 16px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--line);}
+  th{
+    background:var(--paper-dim);color:var(--fern);font-weight:700;text-transform:uppercase;font-size:10.5px;
+    letter-spacing:.06em;position:sticky;top:0;
+  }
+  tbody tr{cursor:pointer;transition:background .12s;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#F6F8F1;}
+  tbody tr:hover td:first-child{color:var(--canopy);font-weight:600;}
+  .empty-row td{padding:40px 16px;text-align:center;color:var(--fern-soft);font-size:13.5px;}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.02em;}
   .badge.ok{background:#E3F1E8;color:var(--moss);}
   .badge.warn{background:#FBE9E2;color:var(--alert);}
   .badge.mid{background:#FCF3DC;color:#946B18;}
 
-  /* modal */
-  #modalBg{position:fixed;inset:0;background:rgba(23,32,25,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
-  #modal{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:88vh;overflow:auto;padding:28px;}
-  #modal h2{margin-top:0;}
-  .qa-row{padding:12px 0;border-bottom:1px solid #EEF1E8;}
+  /* ---------------- modal ---------------- */
+  #modalBg{
+    position:fixed;inset:0;background:rgba(15,42,32,.55);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  #modal{
+    background:var(--card);border-radius:18px;max-width:760px;width:100%;max-height:88vh;overflow:auto;
+    padding:30px 32px;box-shadow:var(--shadow-lg);
+  }
+  #modal h2{margin-top:0;font-size:22px;}
+  .qa-row{padding:13px 0;border-bottom:1px solid var(--line);}
+  .qa-row:last-child{border-bottom:none;}
   .qa-row .qtxt{font-weight:600;font-size:14px;margin-bottom:6px;}
   .qa-row .ans{font-size:13px;}
   .ans.correct{color:var(--moss);font-weight:700;}
   .ans.wrong{color:var(--alert);font-weight:700;}
   .ans.unanswered{color:#999;font-style:italic;}
-  .viol-item{font-size:12px;background:#FBE9E2;color:var(--alert);border-radius:6px;padding:6px 10px;margin-bottom:6px;}
-  #modalClose{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--fern);}
+  .viol-item{font-size:12px;background:#FBE9E2;color:var(--alert);border-radius:8px;padding:7px 11px;margin-bottom:6px;}
+  #modalClose{
+    float:right;background:var(--paper-dim);border:none;width:30px;height:30px;border-radius:50%;
+    font-size:15px;cursor:pointer;color:var(--fern);transition:background .15s, color .15s;
+  }
+  #modalClose:hover{background:var(--line);color:var(--canopy);}
+
+  @media (max-width:640px){
+    #dash{padding:18px 16px 50px;}
+    .header{align-items:flex-start;}
+    .header h1{font-size:24px;}
+    th,td{padding:10px 12px;font-size:12.5px;}
+  }
 </style>
 </head>
 <body>
 
 <div id="loginScreen">
+  <div class="login-mark">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22 3C22 3 9 10 9 23c0 8 6 14 13 18 7-4 13-10 13-18C35 10 22 3 22 3Z" fill="#2D6A4F" stroke="#D9A441" stroke-width="1.4"/>
+      <path d="M22 8v29M22 15c-4 0-8 2-9.5 6M22 22c4 0 8.5 1.5 10.5 5.5" stroke="#173D2E" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    <span class="tag">Admin console</span>
+  </div>
   <div class="login-card">
-    <h1 style="margin-top:0;">DEMETER 26'</h1>
-    <p style="color:var(--fern);margin-top:-8px;">Admin sign in</p>
-    <input id="loginEmail" type="email" placeholder="Admin email" autocomplete="username">
-    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password">
+    <h1>DEMETER 26'</h1>
+    <p class="sub">Sign in to review live results</p>
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" placeholder="you@school.edu" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="loginPass">Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
     <button id="loginBtn">Sign in</button>
     <div id="loginError"></div>
   </div>
@@ -86,7 +197,11 @@
 
 <div id="dash">
   <div class="header">
-    <h1>DEMETER 26' Results</h1>
+    <div>
+      <div class="eyebrow">Live results</div>
+      <h1>DEMETER 26' Dashboard</h1>
+      <p class="sub">Every submission updates here in real time.</p>
+    </div>
     <button class="btn outline" id="logoutBtn">Sign out</button>
   </div>
 
@@ -108,12 +223,14 @@
     <button class="btn" id="exportBtn">Export CSV</button>
   </div>
 
-  <table>
-    <thead>
-      <tr><th>Name</th><th>School</th><th>Grade</th><th>Score /100</th><th>Fast</th><th>Violations</th><th>Status</th><th>Duration</th></tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>School</th><th>Grade</th><th>Score /120</th><th>Fast</th><th>Violations</th><th>Status</th><th>Duration</th></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <div id="modalBg">
@@ -154,7 +271,7 @@ const ANSWER_KEY = {
   27:"2.7 Million Ha", 28:"South China Tiger", 29:"Paleoloxodon namadicus",
   30:"Sumatran Elephant", 31:"Muthurajawela", 32:"1981",
   33:"Bangladesh", 34:"Silavathurai", 35:"Namami Gange",
-  36:"Colombo", 37:"Sudd", 38:"King Dutugemunu",
+  36:"Colombo", 37:"Sundarbans", 38:"King Dutugemunu",
   39:"Mullaitivu and Trincomalee", 40:"Victoria", 41:"Sulaiman and Indus",
   42:"Gal Oya", 43:"Adenosine Tri Pospate", 44:"Water Spinach and Ceylon Toque Macaque",
   45:"East Africa",
@@ -256,7 +373,7 @@ function scoreSubmission(sub){
     details.push({id:i, qtext:QUESTION_TEXT[i], given, correct, isCorrect, marks, fast});
   }
   const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0;
-  return { rawScore, bonus, score: rawScore+bonus, fastCount, details, maxRaw:95, maxTotal:100 };
+  return { rawScore, bonus, score: rawScore+bonus, fastCount, details, maxRaw:115, maxTotal:120 };
 }
 
 function listenSubmissions(){
@@ -306,6 +423,14 @@ function renderTable(){
   document.getElementById('statAvg').textContent = submittedCount ? (scoreSum/submittedCount).toFixed(1) : '0';
   document.getElementById('statAuto').textContent = autoCount;
 
+  if(rows.length===0){
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    tr.innerHTML = `<td colspan="8">${Object.keys(allSubmissions).length ? 'No results match your search.' : 'No submissions yet — results will appear here as students finish the quiz.'}</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
   rows.forEach(({key,sub,score,duration})=>{
     const tr = document.createElement('tr');
     const violBadgeClass = (sub.violationCount||0)===0 ? 'ok' : (sub.violationCount>=3?'warn':'mid');
@@ -317,8 +442,8 @@ function renderTable(){
       <td>${escapeHtml(sub.name||'—')}</td>
       <td>${escapeHtml(sub.school||'—')}</td>
       <td>${escapeHtml(sub.grade||'—')}</td>
-      <td><b>${score}</b> / 100${bonus?' <span class="badge ok">+'+bonus+'</span>':''}</td>
-      <td>${fastCount}/45</td>
+      <td><b>${score}</b> / 120${bonus?' <span class="badge ok">+'+bonus+'</span>':''}</td>
+      <td>${fastCount}/${TOTAL_Q}</td>
       <td><span class="badge ${violBadgeClass}">${sub.violationCount||0}</span></td>
       <td>${statusBadge}</td>
       <td>${duration!==null ? duration+'s' : '—'}</td>
@@ -341,9 +466,9 @@ function openModal(key){
   const {score, rawScore, bonus, fastCount, details} = scoreSubmission(sub);
   const violations = sub.violations ? Object.values(sub.violations) : [];
 
-  let html = `<h2>${escapeHtml(sub.name)} — ${score}/100</h2>
+  let html = `<h2>${escapeHtml(sub.name)} — ${score}/120</h2>
     <p style="color:var(--fern);margin-top:-8px;">${escapeHtml(sub.school)} · ${escapeHtml(sub.grade)}</p>
-    <p style="font-size:13px;color:var(--bark);">Raw: ${rawScore}/95 &nbsp;·&nbsp; Fast answers: ${fastCount}/45 (need >25 for bonus) &nbsp;·&nbsp; Bonus: ${bonus? '+'+bonus : '0'}</p>`;
+    <p style="font-size:13px;color:var(--bark);">Raw: ${rawScore}/115 &nbsp;·&nbsp; Fast answers: ${fastCount}/${TOTAL_Q} (need >${FAST_BONUS_THRESHOLD} for bonus) &nbsp;·&nbsp; Bonus: ${bonus? '+'+bonus : '0'}</p>`;
 
   if(violations.length){
     html += `<h3 style="font-size:15px;">Violations (${violations.length})</h3>`;
@@ -386,11 +511,11 @@ window.resetDevice = function(deviceId, fingerprint){
 
 // ---------------- CSV export ----------------
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const rows = [['Name','School','Grade','Score /100','Raw /95','Bonus','Fast Answers','Violations','Status','Auto-Submitted','Start Time','End Time']];
+  const rows = [['Name','School','Grade','Score /120','Raw /115','Bonus','Fast Answers','Violations','Status','Auto-Submitted','Start Time','End Time']];
   Object.values(allSubmissions).forEach(sub=>{
     const {score, rawScore, bonus, fastCount} = scoreSubmission(sub);
     rows.push([
-      sub.name, sub.school, sub.grade, score, rawScore, bonus, fastCount+'/45', sub.violationCount||0,
+      sub.name, sub.school, sub.grade, score, rawScore, bonus, fastCount+'/'+TOTAL_Q, sub.violationCount||0,
       sub.status, sub.autoSubmitted?'Yes':'No',
       sub.startTime?new Date(sub.startTime).toISOString():'',
       sub.endTime?new Date(sub.endTime).toISOString():''
