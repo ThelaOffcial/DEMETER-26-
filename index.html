@@ -93,6 +93,13 @@
   .powered-by{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;opacity:.85;}
   .powered-by img{width:22px;height:22px;object-fit:contain;}
   .powered-by span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fern);font-weight:700;}
+
+  .lang-switch{display:flex;gap:8px;margin-bottom:18px;}
+  .lang-btn{flex:1;padding:10px 12px;border-radius:10px;border:2px solid #DCE3D3;background:#fff;color:var(--bark);font-family:var(--font-display);font-size:14px;cursor:pointer;transition:.15s;}
+  .lang-btn.active{border-color:var(--canopy);background:var(--canopy);color:#fff;}
+  .lang-status{font-size:12px;color:var(--fern);margin:-10px 0 16px;display:flex;align-items:center;gap:6px;}
+  .lang-status .spin{width:12px;height:12px;border:2px solid #C9D4BC;border-top-color:var(--canopy);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -106,18 +113,24 @@
 
 <!-- REGISTRATION -->
 <div class="card" id="regScreen">
-  <label for="fName">Full Name *</label>
+  <div class="lang-switch">
+    <button type="button" class="lang-btn active" id="langEnBtn">English</button>
+    <button type="button" class="lang-btn" id="langSiBtn">සිංහල</button>
+  </div>
+  <div class="lang-status hidden" id="langStatus"><span class="spin"></span><span id="langStatusText">Translating to Sinhala…</span></div>
+
+  <label for="fName" id="lblName">Full Name *</label>
   <input id="fName" type="text" placeholder="e.g. K. D. Perera" autocomplete="off">
 
-  <label for="fSchool">School *</label>
+  <label for="fSchool" id="lblSchool">School *</label>
   <input id="fSchool" type="text" placeholder="e.g. Visakha Vidyalaya, Colombo" autocomplete="off">
 
-  <label for="fGrade">Grade / Index Number (optional)</label>
+  <label for="fGrade" id="lblGrade">Grade / Index Number (optional)</label>
   <input id="fGrade" type="text" placeholder="e.g. Grade 10 — 4521" autocomplete="off">
 
   <button class="btn-primary" id="startBtn">Start Quiz</button>
 
-  <div class="rules">
+  <div class="rules" id="rulesBox">
     <b>Before you start:</b><br>
     • 50 questions. Each question: <b>10 seconds to read</b>, then <b>20 seconds to answer</b> — the quiz moves on automatically.<br>
     • If you answer before the 20 seconds are up, the quiz moves to the next question shortly after — no need to wait out the timer.<br>
@@ -234,6 +247,175 @@ function shuffle(arr){
   return a;
 }
 
+// ---------------- Live translation (English <-> Sinhala) ----------------
+// Uses the free MyMemory translation API at runtime — nothing is pre-translated
+// and shipped in this file. English is the source of truth for scoring; the
+// Sinhala text is only ever used for display.
+let quizLang = 'en'; // 'en' | 'si'
+const translationCache = {};   // English string -> Sinhala string
+const DELIM = '\n@@@\n';
+const TRANSLATE_ENDPOINT = 'https://api.mymemory.translated.net/get';
+
+async function translateOne(text){
+  if(!text || !text.trim()) return text;
+  if(translationCache[text]) return translationCache[text];
+  try{
+    const res = await fetch(`${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=en|si`);
+    const data = await res.json();
+    const translated = data && data.responseData && data.responseData.translatedText;
+    if(translated){ translationCache[text] = translated; return translated; }
+  }catch(e){ console.warn('translate failed for', text, e); }
+  return text; // fall back to English if the API is unreachable
+}
+
+// Batches several short strings into one request (joined by a delimiter the
+// translator is unlikely to alter), to keep the request count reasonable for
+// ~50 questions. Falls back to per-string requests if a batch comes back
+// misaligned.
+async function translateBatch(list){
+  const CHUNK_BUDGET = 420; // stay well under MyMemory's per-request limit
+  const chunks = [];
+  let cur = [], curLen = 0;
+  for(const t of list){
+    const len = (t||'').length + DELIM.length;
+    if(curLen + len > CHUNK_BUDGET && cur.length){ chunks.push(cur); cur=[]; curLen=0; }
+    cur.push(t||''); curLen += len;
+  }
+  if(cur.length) chunks.push(cur);
+
+  const results = [];
+  for(const chunk of chunks){
+    const joined = chunk.join(DELIM);
+    if(translationCache[joined]){
+      results.push(...translationCache[joined].split(DELIM));
+      continue;
+    }
+    try{
+      const res = await fetch(`${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(joined)}&langpair=en|si`);
+      const data = await res.json();
+      const translated = (data && data.responseData && data.responseData.translatedText) || '';
+      const parts = translated.split(DELIM).map(s=>s.trim());
+      if(parts.length === chunk.length){
+        translationCache[joined] = translated;
+        results.push(...parts);
+      } else {
+        // batch got mangled — translate this chunk's strings one at a time
+        for(const t of chunk) results.push(await translateOne(t));
+      }
+    }catch(e){
+      console.warn('batch translate failed', e);
+      results.push(...chunk); // fall back to English for this chunk
+    }
+  }
+  return results;
+}
+
+// Sinhala versions, filled in lazily the first time Sinhala is selected.
+let sinhalaBank = null;    // { [questionId]: { q, options[] } }
+let sinhalaBankPromise = null;
+async function prepareSinhalaBank(){
+  if(sinhalaBank) return sinhalaBank;
+  if(sinhalaBankPromise) return sinhalaBankPromise;
+  sinhalaBankPromise = (async ()=>{
+    const flat = [];
+    QUESTION_BANK.forEach(q=>{ flat.push(q.q); q.options.forEach(o=>flat.push(o)); });
+    const translated = await translateBatch(flat);
+    let idx = 0;
+    const bank = {};
+    QUESTION_BANK.forEach(q=>{
+      const tq = translated[idx++];
+      const topts = q.options.map(()=>translated[idx++]);
+      bank[q.id] = { q: tq, options: topts };
+    });
+    sinhalaBank = bank;
+    return bank;
+  })();
+  return sinhalaBankPromise;
+}
+
+// A handful of interface strings — buttons, phase labels, done-screen text.
+// Translated the same way, on demand, the first time Sinhala is picked.
+const UI_EN = {
+  startBtn: 'Start Quiz',
+  starting: 'Starting…',
+  lblName: 'Full Name *',
+  lblSchool: 'School *',
+  lblGrade: 'Grade / Index Number (optional)',
+  readPhase: 'Read the question',
+  answerPhase: 'Choose your answer',
+  lockedPhase: 'Answer locked — next question…',
+  doneTitle: 'Quiz Submitted',
+  doneMsg: "Thank you for taking part in DEMETER 26'. Your responses have been recorded. Results of the first round will be announced by the organising committee.",
+  autoSubmitTitle: 'Quiz Auto-Submitted',
+  autoSubmitMsgPrefix: 'Your quiz was automatically submitted',
+  autoSubmitMsgSuffix: 'If you believe this was a mistake, please contact the quiz coordinators.',
+  ruleHeading: 'Before you start:',
+  rule1: '50 questions. Each question: 10 seconds to read, then 20 seconds to answer — the quiz moves on automatically.',
+  rule2: "If you answer before the 20 seconds are up, the quiz moves to the next question shortly after — no need to wait out the timer.",
+  rule3: "There is no going back once a question's time is up.",
+  rule4: 'Answering quickly and correctly can earn you bonus marks.',
+  rule5: 'Only one submission per device is allowed.',
+  rule6: 'The quiz runs in full screen. Switching tabs or minimising the window is logged as a violation — 3 violations auto-submit your quiz.',
+  rule7: 'Exiting full screen gives you only 5 seconds to return before your quiz is auto-submitted.',
+  rule8: 'Copying, right-click, and screenshot key combinations are disabled during the quiz.',
+  regErrorMissing: 'Please fill in your name and school.'
+};
+let uiSi = {};
+let uiSiPromise = null;
+async function prepareUiSi(){
+  if(Object.keys(uiSi).length) return uiSi;
+  if(uiSiPromise) return uiSiPromise;
+  uiSiPromise = (async ()=>{
+    const keys = Object.keys(UI_EN);
+    const vals = keys.map(k=>UI_EN[k]);
+    const translated = await translateBatch(vals);
+    keys.forEach((k,i)=>{ uiSi[k]=translated[i]; });
+    return uiSi;
+  })();
+  return uiSiPromise;
+}
+function t(key){
+  if(quizLang==='si' && uiSi[key]) return uiSi[key];
+  return UI_EN[key];
+}
+
+function applyStaticUiLang(){
+  document.getElementById('lblName').textContent = t('lblName');
+  document.getElementById('lblSchool').textContent = t('lblSchool');
+  document.getElementById('lblGrade').textContent = t('lblGrade');
+  if(!startBtn.disabled) startBtn.textContent = t('startBtn');
+  const rulesBox = document.getElementById('rulesBox');
+  rulesBox.innerHTML = `<b>${t('ruleHeading')}</b><br>` +
+    [1,2,3,4,5,6,7,8].map(n=>`• ${t('rule'+n)}<br>`).join('');
+}
+
+const langEnBtn = document.getElementById('langEnBtn');
+const langSiBtn = document.getElementById('langSiBtn');
+const langStatus = document.getElementById('langStatus');
+const langStatusText = document.getElementById('langStatusText');
+
+langEnBtn.addEventListener('click', ()=>{
+  quizLang = 'en';
+  langEnBtn.classList.add('active');
+  langSiBtn.classList.remove('active');
+  langStatus.classList.add('hidden');
+  applyStaticUiLang();
+});
+
+langSiBtn.addEventListener('click', async ()=>{
+  quizLang = 'si';
+  langSiBtn.classList.add('active');
+  langEnBtn.classList.remove('active');
+  langStatusText.textContent = 'Translating to Sinhala…';
+  langStatus.classList.remove('hidden');
+  try{
+    await Promise.all([prepareSinhalaBank(), prepareUiSi()]);
+  } finally {
+    langStatus.classList.add('hidden');
+  }
+  if(quizLang==='si') applyStaticUiLang();
+});
+
 // ---------------- Registration ----------------
 const regScreen = document.getElementById('regScreen');
 const quizScreen = document.getElementById('quizScreen');
@@ -268,12 +450,19 @@ startBtn.addEventListener('click', async ()=>{
   const school = document.getElementById('fSchool').value.trim();
   const grade = document.getElementById('fGrade').value.trim();
   if(!name || !school){
-    regError.textContent = 'Please fill in your name and school.';
+    regError.textContent = t('regErrorMissing');
     regError.classList.remove('hidden');
     return;
   }
   startBtn.disabled = true;
-  startBtn.textContent = 'Starting…';
+  startBtn.textContent = t('starting');
+
+  if(quizLang==='si'){
+    langStatusText.textContent = 'Translating to Sinhala…';
+    langStatus.classList.remove('hidden');
+    await Promise.all([prepareSinhalaBank(), prepareUiSi()]);
+    langStatus.classList.add('hidden');
+  }
 
   const eligible = await checkDeviceEligibility();
   if(!eligible){
@@ -289,6 +478,7 @@ startBtn.addEventListener('click', async ()=>{
   submissionKey = ref.key;
   await ref.set({
     name, school, grade,
+    lang: quizLang,
     deviceId, fingerprint,
     status:'in-progress',
     startTime: Date.now(),
@@ -310,9 +500,15 @@ startBtn.addEventListener('click', async ()=>{
   startQuestionTimer();
 });
 
+// Builds, for every question, a shuffled list of {value,label} pairs.
+// "value" is always the canonical English option text — this is what gets
+// stored as the answer and is what admin.html's ANSWER_KEY compares against.
+// "label" is what's shown on screen, in whichever language is selected.
 function buildQuestions(){
   QUESTION_BANK.forEach(q=>{
-    shuffledOptions[q.id] = shuffle(q.options);
+    const labels = (quizLang==='si' && sinhalaBank && sinhalaBank[q.id]) ? sinhalaBank[q.id].options : q.options;
+    const pairs = q.options.map((val,i)=>({ value: val, label: labels[i] || val }));
+    shuffledOptions[q.id] = shuffle(pairs);
   });
 }
 
@@ -328,8 +524,9 @@ const phaseTimer = document.getElementById('phaseTimer');
 
 function renderQuestion(){
   const q = QUESTION_BANK[current];
+  const translatedQ = (quizLang==='si' && sinhalaBank && sinhalaBank[q.id]) ? sinhalaBank[q.id].q : q.q;
   qNumBadge.textContent = q.id;
-  qText.textContent = q.q;
+  qText.textContent = translatedQ;
   qCount.textContent = `Q${q.id} / ${QUESTION_BANK.length}`;
   progressFill.style.width = (current/QUESTION_BANK.length*100)+'%';
 
@@ -345,12 +542,12 @@ function renderQuestion(){
 
   optionsWrap.innerHTML='';
   const letters=['A','B','C','D'];
-  shuffledOptions[q.id].forEach((opt,i)=>{
+  shuffledOptions[q.id].forEach((pair,i)=>{
     const div = document.createElement('div');
-    const isSelected = answers[q.id] && answers[q.id].value===opt;
+    const isSelected = answers[q.id] && answers[q.id].value===pair.value;
     div.className='option'+(isSelected?' selected':'')+((phase==='reading'||lockedIn) ? ' disabled':'');
-    div.innerHTML = `<span class="letter">${letters[i]}</span><span>${opt}</span>`;
-    div.addEventListener('click', ()=>selectAnswer(q.id, opt));
+    div.innerHTML = `<span class="letter">${letters[i]}</span><span>${pair.label}</span>`;
+    div.addEventListener('click', ()=>selectAnswer(q.id, pair.value));
     optionsWrap.appendChild(div);
   });
 }
@@ -361,12 +558,12 @@ function renderQuestion(){
 const FAST_ADVANCE_DELAY = 1200; // ms
 let fastAdvanceTimeout = null;
 
-function selectAnswer(qId, opt){
+function selectAnswer(qId, value){
   if(phase!=='answering' || submitted) return;
   if(answers[qId]) return; // already locked in — ignore further taps
   const elapsed = Date.now() - answerPhaseStartTime;
   const fast = elapsed <= (ANSWER_SECONDS/2*1000); // answered within first half of the 20s answering window (<=10s)
-  answers[qId] = { value: opt, fast, at: Date.now() };
+  answers[qId] = { value, fast, at: Date.now() }; // "value" is always the canonical English option
   updatePhaseUI();
   if(submissionKey){
     db.ref(`submissions/${submissionKey}/answers/${qId}`).set(answers[qId]);
@@ -386,13 +583,13 @@ function updatePhaseUI(){
   phaseTimer.textContent = phaseTimeLeft;
   phaseTimer.classList.toggle('low', phaseTimeLeft<=3);
   if(phase==='reading'){
-    phaseLabel.textContent = 'Read the question';
+    phaseLabel.textContent = t('readPhase');
     phaseLabel.classList.remove('answering');
   } else if(lockedIn){
-    phaseLabel.textContent = 'Answer locked — next question…';
+    phaseLabel.textContent = t('lockedPhase');
     phaseLabel.classList.add('answering');
   } else {
-    phaseLabel.textContent = 'Choose your answer';
+    phaseLabel.textContent = t('answerPhase');
     phaseLabel.classList.add('answering');
   }
   renderQuestion();
@@ -586,8 +783,11 @@ async function finalizeSubmit(auto, reason){
   quizScreen.classList.add('hidden');
   doneScreen.classList.remove('hidden');
   if(auto && reason!=='completed'){
-    document.getElementById('doneTitle').textContent='Quiz Auto-Submitted';
-    document.getElementById('doneMsg').textContent = `Your quiz was automatically submitted (${describeViolation(reason)}). If you believe this was a mistake, please contact the quiz coordinators.`;
+    document.getElementById('doneTitle').textContent = t('autoSubmitTitle');
+    document.getElementById('doneMsg').textContent = `${t('autoSubmitMsgPrefix')} (${describeViolation(reason)}). ${t('autoSubmitMsgSuffix')}`;
+  } else {
+    document.getElementById('doneTitle').textContent = t('doneTitle');
+    document.getElementById('doneMsg').textContent = t('doneMsg');
   }
 }
 </script>
