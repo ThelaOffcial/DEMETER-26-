@@ -401,6 +401,36 @@ export default function AdminPage() {
     [scored]
   )
 
+  // Top schools by best student score (winning school ranking)
+  const schoolRankings = useMemo(() => {
+    const map = {}
+    scored
+      .filter(({ sub }) => sub.status === 'submitted')
+      .forEach(({ sub, score }) => {
+        const school = (sub.school || 'Unknown').trim()
+        if (!map[school] || score > map[school].score) {
+          map[school] = {
+            school,
+            score,
+            name: sub.name || '—',
+            grade: sub.grade || '',
+          }
+        }
+      })
+    return Object.values(map)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+  }, [scored])
+
+  const topStudents = useMemo(
+    () =>
+      scored
+        .filter(({ sub }) => sub.status === 'submitted')
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10),
+    [scored]
+  )
+
   const allowRetake = useCallback(async (sub) => {
     if (
       !confirm(
@@ -525,6 +555,164 @@ export default function AdminPage() {
     URL.revokeObjectURL(url)
   }, [scored])
 
+  const exportWinnersPoster = useCallback(() => {
+    if (schoolRankings.length === 0) {
+      alert('No submitted results yet to generate a poster.')
+      return
+    }
+
+    const W = 1080
+    const H = 1350
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+
+    // Background gradient
+    const bg = ctx.createLinearGradient(0, 0, W, H)
+    bg.addColorStop(0, '#0A1F18')
+    bg.addColorStop(0.45, '#173D2E')
+    bg.addColorStop(1, '#0F2A20')
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, W, H)
+
+    // Soft gold glow top
+    const glow = ctx.createRadialGradient(W * 0.5, 80, 20, W * 0.5, 120, 420)
+    glow.addColorStop(0, 'rgba(217,164,65,0.28)')
+    glow.addColorStop(1, 'rgba(217,164,65,0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(0, 0, W, 500)
+
+    // Corner accent lines
+    ctx.strokeStyle = 'rgba(217,164,65,0.35)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(48, 48)
+    ctx.lineTo(180, 48)
+    ctx.moveTo(48, 48)
+    ctx.lineTo(48, 180)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(W - 48, H - 48)
+    ctx.lineTo(W - 180, H - 48)
+    ctx.moveTo(W - 48, H - 48)
+    ctx.lineTo(W - 48, H - 180)
+    ctx.stroke()
+
+    // Eyebrow
+    ctx.fillStyle = '#D9A441'
+    ctx.font = '600 22px "Work Sans", system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.letterSpacing = '6px'
+    ctx.fillText('ALL ISLAND INTER SCHOOL ECO QUIZ', W / 2, 100)
+
+    // Title
+    ctx.fillStyle = '#F1F3EA'
+    ctx.font = '700 72px "Fraunces", Georgia, serif'
+    ctx.fillText("DEMETER 26'", W / 2, 185)
+
+    // Subtitle
+    ctx.fillStyle = 'rgba(241,243,234,0.75)'
+    ctx.font = '500 28px "Work Sans", system-ui, sans-serif'
+    ctx.fillText('TOP 5 WINNING SCHOOLS', W / 2, 240)
+
+    // Gold divider
+    ctx.strokeStyle = '#D9A441'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(W / 2 - 80, 268)
+    ctx.lineTo(W / 2 + 80, 268)
+    ctx.stroke()
+
+    const medals = ['#D9A441', '#C0C7CE', '#C47B3A', '#7C9A8E', '#7C9A8E']
+    const startY = 320
+    const rowH = 150
+
+    schoolRankings.forEach((row, i) => {
+      const y = startY + i * rowH
+      // Card background
+      ctx.fillStyle = i === 0 ? 'rgba(217,164,65,0.14)' : 'rgba(255,255,255,0.05)'
+      roundRect(ctx, 64, y, W - 128, 128, 20)
+      ctx.fill()
+      ctx.strokeStyle = i === 0 ? 'rgba(217,164,65,0.55)' : 'rgba(255,255,255,0.08)'
+      ctx.lineWidth = 1.5
+      roundRect(ctx, 64, y, W - 128, 128, 20)
+      ctx.stroke()
+
+      // Rank circle
+      ctx.beginPath()
+      ctx.arc(130, y + 64, 32, 0, Math.PI * 2)
+      ctx.fillStyle = medals[i] || '#7C9A8E'
+      ctx.fill()
+      ctx.fillStyle = i < 3 ? '#0F2A20' : '#F1F3EA'
+      ctx.font = '700 28px "Fraunces", Georgia, serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(String(i + 1), 130, y + 74)
+
+      // School name
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#F1F3EA'
+      ctx.font = '600 32px "Work Sans", system-ui, sans-serif'
+      const schoolName = truncate(ctx, row.school, W - 360)
+      ctx.fillText(schoolName, 190, y + 52)
+
+      // Student
+      ctx.fillStyle = 'rgba(241,243,234,0.65)'
+      ctx.font = '500 22px "Work Sans", system-ui, sans-serif'
+      const studentLine = row.grade
+        ? `${row.name}  ·  ${row.grade}`
+        : row.name
+      ctx.fillText(truncate(ctx, studentLine, W - 360), 190, y + 90)
+
+      // Score
+      ctx.textAlign = 'right'
+      ctx.fillStyle = '#D9A441'
+      ctx.font = '700 40px "Fraunces", Georgia, serif'
+      ctx.fillText(String(row.score), W - 100, y + 72)
+      ctx.fillStyle = 'rgba(241,243,234,0.5)'
+      ctx.font = '500 16px "Work Sans", system-ui, sans-serif'
+      ctx.fillText('/ 120', W - 100, y + 98)
+    })
+
+    // Footer
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(241,243,234,0.45)'
+    ctx.font = '500 20px "Work Sans", system-ui, sans-serif'
+    ctx.fillText('First Round Results  ·  Powered by SSCICTS', W / 2, H - 56)
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        alert('Could not create image.')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'demeter26-top5-schools.png'
+      a.click()
+      URL.revokeObjectURL(url)
+    }, 'image/png')
+  }, [schoolRankings])
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + w, y, x + w, y + h, r)
+    ctx.arcTo(x + w, y + h, x, y + h, r)
+    ctx.arcTo(x, y + h, x, y, r)
+    ctx.arcTo(x, y, x + w, y, r)
+    ctx.closePath()
+  }
+
+  function truncate(ctx, text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text
+    let s = text
+    while (s.length > 0 && ctx.measureText(s + '…').width > maxW) {
+      s = s.slice(0, -1)
+    }
+    return s + '…'
+  }
+
   if (!authReady) {
     return <div className="auth-loading">Checking session…</div>
   }
@@ -572,7 +760,7 @@ export default function AdminPage() {
       </div>
 
       <div className="tabs">
-        {['results', 'leaderboard', 'devices', 'tools'].map((id) => (
+        {['results', 'leaderboard', 'winners', 'devices', 'tools'].map((id) => (
           <button
             key={id}
             className={'tab' + (tab === id ? ' active' : '')}
@@ -581,10 +769,12 @@ export default function AdminPage() {
             {id === 'results'
               ? 'Results'
               : id === 'leaderboard'
-                ? 'Leaderboard'
-                : id === 'devices'
-                  ? 'Devices & Retakes'
-                  : 'Tools'}
+                ? 'Top Students'
+                : id === 'winners'
+                  ? 'Winning Schools'
+                  : id === 'devices'
+                    ? 'Devices & Retakes'
+                    : 'Tools'}
           </button>
         ))}
       </div>
@@ -695,6 +885,60 @@ export default function AdminPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {tab === 'winners' && (
+        <>
+          <div className="panel">
+            <h3>Top 5 winning schools</h3>
+            <p>
+              Ranked by each school&apos;s highest student score. Export a
+              modern shareable poster for social media.
+            </p>
+            <button
+              className="btn"
+              onClick={exportWinnersPoster}
+              disabled={schoolRankings.length === 0}
+            >
+              Export Top 5 poster (PNG)
+            </button>
+          </div>
+          <div className="panel">
+            <div className="leaderboard">
+              {schoolRankings.length === 0 && (
+                <p className="muted">No submitted results yet.</p>
+              )}
+              {schoolRankings.map((row, i) => (
+                <div key={row.school} className="lb-row">
+                  <div className="lb-rank">#{i + 1}</div>
+                  <div className="lb-name">
+                    {row.school}
+                    <div className="muted">
+                      Top student: {row.name}
+                      {row.grade ? ` · ${row.grade}` : ''}
+                    </div>
+                  </div>
+                  <div className="lb-score">{row.score}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="panel">
+            <h3>Top students (for reference)</h3>
+            <div className="leaderboard">
+              {topStudents.map(({ sub, score }, i) => (
+                <div key={i} className="lb-row">
+                  <div className="lb-rank">#{i + 1}</div>
+                  <div className="lb-name">
+                    {sub.name}{' '}
+                    <span className="muted">· {sub.school}</span>
+                  </div>
+                  <div className="lb-score">{score}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {tab === 'devices' && (
