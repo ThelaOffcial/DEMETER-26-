@@ -1,45 +1,61 @@
-# DEMETER 26' Eco Quiz
+# DEMETER 26' — React App
 
-Student quiz + Admin console (Firebase Realtime Database + Auth).
+Real **React + Vite** project (not CDN HTML).
 
-## Files
+## Structure
 
-| File | Purpose |
-|------|---------|
-| `index.html` | Student quiz (EN/SI, anti-cheat, one attempt per device) |
-| `admin.html` | React admin (Sign in / Sign up, results, retakes, devices, export) |
-| `questions-data.js` | Question bank (no answers) |
-| `translations-si.js` | Sinhala UI + question labels |
+```
+demeter-app/
+  index.html
+  package.json
+  vite.config.js
+  src/
+    main.jsx
+    App.jsx
+    pages/
+      QuizPage.jsx      # Student quiz  →  /
+      AdminPage.jsx     # Admin console →  /admin
+    lib/
+      firebase.js
+      scoring.js        # Answer key (admin only)
+      device.js
+      uiStrings.js
+    data/
+      questions.js
+      translations.js
+    styles/index.css
+```
 
-## Admin accounts (Sign up + Sign in)
+## Run
 
-1. Open `admin.html`
-2. **Sign up** tab → email + password (min 6 chars) → Create admin account  
-3. Next visits: **Sign in** with the same email/password  
-4. **Sign out** ends the session  
+```bash
+cd demeter-app
+npm install
+npm run dev
+```
 
-Firebase must have **Email/Password** enabled:  
-Firebase Console → Authentication → Sign-in method → Email/Password → Enable.
+- Student: http://localhost:5173/
+- Admin:   http://localhost:5173/admin
 
-Clear error messages are shown for wrong password, weak password, email already in use, network errors, etc.
+## Build for production
 
-Session stays on this browser until Sign out (normal Firebase behaviour). A brief “Checking session…” screen avoids a login flash on reload.
+```bash
+npm run build
+```
 
-## Retake
+Output in `dist/`. Deploy the `dist` folder to any static host.
 
-1. Admin → open submission → **Allow device to retake** (or Devices tab)  
-2. Student refreshes `index.html` — local lock clears when server lock is gone  
+## Features
 
-## Scoring
+**Student**
+- EN / සිංහල
+- 10s read + 20s answer, fast bonus, image questions
+- Anti-cheat (fullscreen, violations)
+- Device lock + admin retake support
 
-Q1–15: 1 mark · Q16–35: 2 · Q36–50: 4 (=115) + up to 5 fast bonus → max **120**
+**Admin**
+- Sign up / Sign in (Firebase Auth)
+- Live results, leaderboard, CSV
+- Allow retake, unlock devices, delete submissions
 
-## Fixes in this package
-
-- Sign up + Sign in for admin accounts  
-- Friendly auth error messages  
-- Auth loading gate (no random auto-jump to dashboard)  
-- Retake end-to-end  
-- Scoring of `{ value, fast, at }` answers  
-- Q39 answer key matched to option text  
-- React double-escape removed  
+Enable **Email/Password** in Firebase Console → Authentication.
