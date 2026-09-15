@@ -3,13 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEMETER 26' — Admin</title>
+<title>DEMETER 26' — Admin Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 <style>
   :root{
     --canopy:#173D2E; --canopy-dim:#0F2A20; --moss:#2D6A4F; --fern:#52796F; --fern-soft:#7C9A8E;
@@ -30,32 +33,30 @@
       var(--paper);
     min-height:100vh;
   }
-  h1,h2{font-family:'Fraunces',Georgia,serif;color:var(--canopy);letter-spacing:-.01em;}
-  .hidden{display:none !important;}
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;color:var(--canopy);letter-spacing:-.01em;}
   ::-webkit-scrollbar{width:10px;height:10px;}
   ::-webkit-scrollbar-thumb{background:#C9D2BE;border-radius:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
 
-  /* ---------------- login ---------------- */
-  #loginScreen{
+  #root{min-height:100vh;}
+
+  /* Login */
+  .login-screen{
     min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;
   }
-  #loginScreen::before{
+  .login-screen::before{
     content:"";position:absolute;inset:0;z-index:0;
     background:
       radial-gradient(700px 380px at 15% 20%, rgba(45,106,79,.20), transparent 60%),
       radial-gradient(600px 400px at 85% 85%, rgba(217,164,65,.18), transparent 60%),
       linear-gradient(160deg, var(--canopy) 0%, var(--canopy-dim) 100%);
   }
-  .login-mark{
-    position:relative;z-index:1;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px;
-  }
+  .login-mark{position:relative;z-index:1;margin-bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px;}
   .login-mark svg{filter:drop-shadow(0 6px 14px rgba(0,0,0,.25));}
   .login-mark .tag{color:rgba(241,243,234,.72);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;}
   .login-card{
-    position:relative;z-index:1;
-    background:var(--card);padding:38px 34px 32px;border-radius:20px;box-shadow:var(--shadow-lg);
-    width:100%;max-width:380px;border:1px solid rgba(255,255,255,.6);
+    position:relative;z-index:1;background:var(--card);padding:38px 34px 32px;border-radius:20px;
+    box-shadow:var(--shadow-lg);width:100%;max-width:380px;border:1px solid rgba(255,255,255,.6);
   }
   .login-card h1{margin:0 0 2px;font-size:26px;}
   .login-card .sub{color:var(--fern);margin:0 0 22px;font-size:13.5px;}
@@ -63,21 +64,29 @@
   .field label{display:block;font-size:11.5px;font-weight:600;color:var(--fern);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
   .login-card input{
     width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;
-    font-family:inherit;background:#FAFBF6;transition:border-color .15s, box-shadow .15s, background .15s;
+    font-family:inherit;background:#FAFBF6;transition:border-color .15s, box-shadow .15s;
   }
-  .login-card input:focus{
-    outline:none;border-color:var(--moss);background:#fff;box-shadow:0 0 0 4px rgba(45,106,79,.12);
-  }
+  .login-card input:focus{outline:none;border-color:var(--moss);background:#fff;box-shadow:0 0 0 4px rgba(45,106,79,.12);}
   .login-card button{
     width:100%;padding:13px;background:var(--canopy);color:#fff;border:none;border-radius:10px;
-    font-weight:600;font-size:14px;margin-top:6px;cursor:pointer;transition:background .15s, transform .1s;
+    font-weight:600;font-size:14px;margin-top:6px;cursor:pointer;transition:background .15s;
   }
   .login-card button:hover{background:var(--canopy-dim);}
-  .login-card button:active{transform:translateY(1px);}
-  #loginError{color:var(--alert);font-size:13px;margin-top:10px;min-height:1px;}
+  .login-error{color:var(--alert);font-size:13px;margin-top:10px;min-height:1px;}
+  .login-ok{color:var(--moss);font-size:13px;margin-top:10px;min-height:1px;}
+  .auth-tabs{display:flex;gap:0;margin-bottom:18px;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;}
+  .auth-tab{
+    flex:1;padding:10px;border:none;background:var(--paper-dim);color:var(--fern);font-weight:600;font-size:13px;
+    cursor:pointer;font-family:inherit;transition:background .15s,color .15s;
+  }
+  .auth-tab.active{background:var(--moss);color:#fff;}
+  .auth-tab:not(.active):hover{background:#E8EDE3;}
+  .auth-hint{font-size:12px;color:var(--fern-soft);margin-top:12px;line-height:1.45;}
+  .auth-loading{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--fern);font-weight:600;}
 
-  /* ---------------- dashboard ---------------- */
-  #dash{display:none;padding:28px 28px 60px;max-width:1240px;margin:0 auto;}
+
+  /* Dashboard */
+  .dash{padding:28px 28px 60px;max-width:1280px;margin:0 auto;}
   .header{
     display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px;flex-wrap:wrap;gap:14px;
     padding-bottom:18px;border-bottom:1px solid var(--line);
@@ -85,162 +94,120 @@
   .header .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
   .header h1{margin:0;font-size:30px;}
   .header .sub{margin:4px 0 0;color:var(--fern);font-size:13.5px;}
+  .header-actions{display:flex;gap:10px;flex-wrap:wrap;}
 
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px;}
   .stat{
     background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);
     border:1px solid var(--line);position:relative;overflow:hidden;transition:box-shadow .18s, transform .18s;
   }
   .stat:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
-  .stat::after{
-    content:"";position:absolute;right:-18px;top:-18px;width:70px;height:70px;border-radius:50%;
-    background:radial-gradient(circle, rgba(45,106,79,.10), transparent 70%);
+  .stat .num{font-family:'Fraunces',Georgia,serif;font-size:28px;color:var(--canopy);line-height:1;}
+  .stat .label{margin-top:6px;font-size:11px;color:var(--fern);font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+
+  .tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+  .tab{
+    padding:9px 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);
+    font-weight:600;font-size:13px;cursor:pointer;color:var(--fern);font-family:inherit;transition:all .15s;
   }
-  .stat .num{font-family:'Fraunces',Georgia,serif;font-size:30px;color:var(--canopy);line-height:1;}
-  .stat .label{margin-top:6px;font-size:11.5px;color:var(--fern);font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+  .tab:hover{border-color:var(--moss);color:var(--moss);}
+  .tab.active{background:var(--moss);color:#fff;border-color:var(--moss);}
 
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
   .toolbar input, .toolbar select{
     padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:13.5px;
-    font-family:inherit;background:var(--card);transition:border-color .15s, box-shadow .15s;
+    font-family:inherit;background:var(--card);
   }
-  .toolbar input{min-width:220px;flex:1 1 220px;}
+  .toolbar input{min-width:200px;flex:1 1 200px;}
   .toolbar input:focus, .toolbar select:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 4px rgba(45,106,79,.10);}
+
   .btn{
     padding:10px 18px;border-radius:10px;border:none;background:var(--moss);color:#fff;font-weight:600;font-size:13.5px;
-    cursor:pointer;font-family:inherit;transition:background .15s, transform .1s, box-shadow .15s;box-shadow:var(--shadow-sm);
+    cursor:pointer;font-family:inherit;transition:background .15s, transform .1s;box-shadow:var(--shadow-sm);
   }
   .btn:hover{background:var(--canopy);}
-  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
   .btn.outline{background:transparent;border:1.5px solid var(--line);color:var(--fern);box-shadow:none;}
   .btn.outline:hover{border-color:var(--moss);color:var(--moss);background:rgba(45,106,79,.06);}
   .btn.alert{background:var(--alert);}
   .btn.alert:hover{background:#8E3123;}
+  .btn.sm{padding:7px 12px;font-size:12px;}
 
   .table-wrap{
-    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;
+    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:auto;
   }
-  table{width:100%;border-collapse:collapse;}
-  th,td{padding:13px 16px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--line);}
+  table{width:100%;border-collapse:collapse;min-width:720px;}
+  th,td{padding:12px 14px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--line);}
   th{
     background:var(--paper-dim);color:var(--fern);font-weight:700;text-transform:uppercase;font-size:10.5px;
-    letter-spacing:.06em;position:sticky;top:0;
+    letter-spacing:.06em;position:sticky;top:0;white-space:nowrap;
   }
   tbody tr{cursor:pointer;transition:background .12s;}
-  tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#F6F8F1;}
-  tbody tr:hover td:first-child{color:var(--canopy);font-weight:600;}
   .empty-row td{padding:40px 16px;text-align:center;color:var(--fern-soft);font-size:13.5px;}
 
-  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.02em;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
   .badge.ok{background:#E3F1E8;color:var(--moss);}
   .badge.warn{background:#FBE9E2;color:var(--alert);}
   .badge.mid{background:#FCF3DC;color:#946B18;}
+  .badge.info{background:#E8EEF6;color:#3A5A8C;}
 
-  /* ---------------- modal ---------------- */
-  #modalBg{
+  /* Modal */
+  .modal-bg{
     position:fixed;inset:0;background:rgba(15,42,32,.55);backdrop-filter:blur(3px);
-    display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;
   }
-  #modal{
-    background:var(--card);border-radius:18px;max-width:760px;width:100%;max-height:88vh;overflow:auto;
-    padding:30px 32px;box-shadow:var(--shadow-lg);
+  .modal{
+    background:var(--card);border-radius:18px;max-width:780px;width:100%;max-height:88vh;overflow:auto;
+    padding:28px 30px;box-shadow:var(--shadow-lg);position:relative;
   }
-  #modal h2{margin-top:0;font-size:22px;}
-  .qa-row{padding:13px 0;border-bottom:1px solid var(--line);}
-  .qa-row:last-child{border-bottom:none;}
-  .qa-row .qtxt{font-weight:600;font-size:14px;margin-bottom:6px;}
+  .modal h2{margin-top:0;font-size:22px;padding-right:36px;}
+  .modal-close{
+    position:absolute;top:18px;right:18px;background:var(--paper-dim);border:none;width:30px;height:30px;
+    border-radius:50%;font-size:15px;cursor:pointer;color:var(--fern);
+  }
+  .modal-close:hover{background:var(--line);color:var(--canopy);}
+  .qa-row{padding:12px 0;border-bottom:1px solid var(--line);}
+  .qa-row .qtxt{font-weight:600;font-size:14px;margin-bottom:5px;}
   .qa-row .ans{font-size:13px;}
   .ans.correct{color:var(--moss);font-weight:700;}
   .ans.wrong{color:var(--alert);font-weight:700;}
   .ans.unanswered{color:#999;font-style:italic;}
   .viol-item{font-size:12px;background:#FBE9E2;color:var(--alert);border-radius:8px;padding:7px 11px;margin-bottom:6px;}
-  #modalClose{
-    float:right;background:var(--paper-dim);border:none;width:30px;height:30px;border-radius:50%;
-    font-size:15px;cursor:pointer;color:var(--fern);transition:background .15s, color .15s;
+  .action-row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+
+  .panel{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:22px;margin-bottom:18px;box-shadow:var(--shadow-sm);}
+  .panel h3{margin:0 0 12px;font-size:18px;}
+  .panel p{margin:0 0 10px;color:var(--fern);font-size:13.5px;line-height:1.5;}
+  .device-list{list-style:none;padding:0;margin:0;}
+  .device-list li{
+    display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;
   }
-  #modalClose:hover{background:var(--line);color:var(--canopy);}
+  .device-list li:last-child{border-bottom:none;}
+  .muted{color:var(--fern-soft);font-size:12.5px;}
+
+  .leaderboard{display:grid;gap:8px;}
+  .lb-row{
+    display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--paper-dim);
+    border-radius:10px;border:1px solid var(--line);
+  }
+  .lb-rank{font-family:'Fraunces',serif;font-size:20px;color:var(--gold);min-width:28px;font-weight:700;}
+  .lb-name{flex:1;font-weight:600;}
+  .lb-score{font-weight:700;color:var(--canopy);}
 
   @media (max-width:640px){
-    #dash{padding:18px 16px 50px;}
-    .header{align-items:flex-start;}
+    .dash{padding:18px 14px 50px;}
     .header h1{font-size:24px;}
-    th,td{padding:10px 12px;font-size:12.5px;}
+    th,td{padding:10px 10px;font-size:12.5px;}
   }
 </style>
 </head>
 <body>
+<div id="root"></div>
 
-<div id="loginScreen">
-  <div class="login-mark">
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22 3C22 3 9 10 9 23c0 8 6 14 13 18 7-4 13-10 13-18C35 10 22 3 22 3Z" fill="#2D6A4F" stroke="#D9A441" stroke-width="1.4"/>
-      <path d="M22 8v29M22 15c-4 0-8 2-9.5 6M22 22c4 0 8.5 1.5 10.5 5.5" stroke="#173D2E" stroke-width="1.3" stroke-linecap="round"/>
-    </svg>
-    <span class="tag">Admin console</span>
-  </div>
-  <div class="login-card">
-    <h1>DEMETER 26'</h1>
-    <p class="sub">Sign in to review live results</p>
-    <div class="field">
-      <label for="loginEmail">Email</label>
-      <input id="loginEmail" type="email" placeholder="you@school.edu" autocomplete="username">
-    </div>
-    <div class="field">
-      <label for="loginPass">Password</label>
-      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button id="loginBtn">Sign in</button>
-    <div id="loginError"></div>
-  </div>
-</div>
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback } = React;
 
-<div id="dash">
-  <div class="header">
-    <div>
-      <div class="eyebrow">Live results</div>
-      <h1>DEMETER 26' Dashboard</h1>
-      <p class="sub">Every submission updates here in real time.</p>
-    </div>
-    <button class="btn outline" id="logoutBtn">Sign out</button>
-  </div>
-
-  <div class="stats">
-    <div class="stat"><div class="num" id="statTotal">0</div><div class="label">Submitted</div></div>
-    <div class="stat"><div class="num" id="statInProgress">0</div><div class="label">In progress</div></div>
-    <div class="stat"><div class="num" id="statAvg">0</div><div class="label">Avg score</div></div>
-    <div class="stat"><div class="num" id="statAuto">0</div><div class="label">Auto-submitted</div></div>
-  </div>
-
-  <div class="toolbar">
-    <input type="text" id="searchBox" placeholder="Search name or school…">
-    <select id="sortSelect">
-      <option value="score-desc">Score (high→low)</option>
-      <option value="score-asc">Score (low→high)</option>
-      <option value="time-desc">Newest first</option>
-      <option value="violations-desc">Most violations</option>
-    </select>
-    <button class="btn" id="exportBtn">Export CSV</button>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Name</th><th>School</th><th>Grade</th><th>Score /120</th><th>Fast</th><th>Violations</th><th>Status</th><th>Duration</th></tr>
-      </thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
-</div>
-
-<div id="modalBg">
-  <div id="modal">
-    <button id="modalClose">✕</button>
-    <div id="modalContent"></div>
-  </div>
-</div>
-
-<script>
 const firebaseConfig = {
   apiKey: "AIzaSyC53ALBwvxPueJgFK8pyPW4L-fe7BJypQQ",
   authDomain: "cse-analise.firebaseapp.com",
@@ -255,9 +222,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-// ---------------------------------------------------------------
-// Answer key lives ONLY here (admin.html is never sent to students)
-// ---------------------------------------------------------------
 const ANSWER_KEY = {
   1:"23rd of March", 2:"197", 3:"Citarum River", 4:"Ionian Sea",
   5:"Using Old Refrigerators", 6:"The Central and the Eastern equatorial Pacific Ocean",
@@ -275,12 +239,6 @@ const ANSWER_KEY = {
   39:"Mullaitivu and Trincomalee", 40:"Victoria", 41:"Sulaiman and Indus",
   42:"Gal Oya", 43:"Adenosine Tri Pospate", 44:"Water Spinach and Ceylon Toque Macaque",
   45:"East Africa",
-  // Q46: marker on the map sits ~20km from Kanneliya vs ~38km from Sinharaja
-  // (measured from the marker's position relative to the coastline) — worth a
-  // quick visual double-check against your source map before go-live.
-  // Q47: photo shows a terrestrial weed with clustered white flower heads —
-  // not aquatic (rules out Water Hyacinth) and not the pink/purple star
-  // flowers of Philippine Firework, so Parthenium is the match.
   46:"Kanneliya - Low Country Tropical Rainforest",
   47:"Pathenium",
   48:"Fukushima - Japan",
@@ -316,219 +274,595 @@ const QUESTION_TEXT = {
   50:"Trade wind direction & effect on sea surface temperature (normal conditions)"
 };
 const TOTAL_Q = Object.keys(ANSWER_KEY).length;
-
-// Marking scheme:
-//  Q1-15  = 1 mark each   (15)
-//  Q16-35 = 2 marks each  (40)
-//  Q36-50 = 4 marks each  (60)
-//  = 115 raw marks, + 5 bonus marks for students who answered
-//    more than 25 of the 50 questions within the first 10s of the
-//    20s answering window ("fast" answers) = 120 max.
 const FAST_BONUS_THRESHOLD = 25;
 const FAST_BONUS_MARKS = 5;
+
 function marksForQuestion(id){
   if(id<=15) return 1;
   if(id<=35) return 2;
   return 4;
 }
 
-// ---------------- Auth ----------------
-document.getElementById('loginBtn').addEventListener('click', ()=>{
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  document.getElementById('loginError').textContent='';
-  auth.signInWithEmailAndPassword(email, pass).catch(err=>{
-    document.getElementById('loginError').textContent = 'Sign-in failed: '+err.message;
-  });
-});
-document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut());
-
-let allSubmissions = {};
-
-auth.onAuthStateChanged(user=>{
-  if(user){
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('dash').style.display='block';
-    listenSubmissions();
-  } else {
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('dash').style.display='none';
-  }
-});
-
 function scoreSubmission(sub){
-  let rawScore=0;
-  let fastCount=0;
+  let rawScore=0, fastCount=0;
   const details=[];
   for(let i=1;i<=TOTAL_Q;i++){
-    const a = sub.answers ? sub.answers[i] : undefined;
-    // support both the new {value,fast} shape and legacy plain-string answers
-    const given = a && typeof a==='object' ? a.value : a;
-    const fast = !!(a && typeof a==='object' && a.fast);
+    const ans = sub.answers && sub.answers[i];
+    // Student stores either a plain string (legacy) or { value, fast, at }
+    const given = (ans && typeof ans === 'object' && ans.value !== undefined) ? ans.value : ans;
     const correct = ANSWER_KEY[i];
     const marks = marksForQuestion(i);
-    const isCorrect = given!==undefined && given===correct;
+    const isCorrect = given === correct;
     if(isCorrect) rawScore += marks;
+    const fast = !!(ans && typeof ans === 'object' && ans.fast) || !!(sub.fastAnswers && sub.fastAnswers[i]);
     if(fast) fastCount++;
-    details.push({id:i, qtext:QUESTION_TEXT[i], given, correct, isCorrect, marks, fast});
-  }
-  const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0;
-  return { rawScore, bonus, score: rawScore+bonus, fastCount, details, maxRaw:115, maxTotal:120 };
-}
-
-function listenSubmissions(){
-  db.ref('submissions').on('value', snap=>{
-    allSubmissions = snap.val() || {};
-    renderTable();
-  });
-}
-
-function renderTable(){
-  const search = document.getElementById('searchBox').value.toLowerCase();
-  const sort = document.getElementById('sortSelect').value;
-  const tbody = document.getElementById('tableBody');
-  tbody.innerHTML='';
-
-  let rows = Object.entries(allSubmissions).map(([key,sub])=>{
-    const {score} = scoreSubmission(sub);
-    const duration = sub.endTime && sub.startTime ? Math.round((sub.endTime-sub.startTime)/1000) : null;
-    return {key, sub, score, duration};
-  });
-
-  if(search){
-    rows = rows.filter(r=>
-      (r.sub.name||'').toLowerCase().includes(search) ||
-      (r.sub.school||'').toLowerCase().includes(search)
-    );
-  }
-
-  rows.sort((a,b)=>{
-    if(sort==='score-desc') return b.score-a.score;
-    if(sort==='score-asc') return a.score-b.score;
-    if(sort==='violations-desc') return (b.sub.violationCount||0)-(a.sub.violationCount||0);
-    if(sort==='time-desc') return (b.sub.startTime||0)-(a.sub.startTime||0);
-    return 0;
-  });
-
-  let submittedCount=0, inProgress=0, autoCount=0, scoreSum=0;
-  Object.values(allSubmissions).forEach(sub=>{
-    if(sub.status==='submitted'){
-      submittedCount++;
-      scoreSum += scoreSubmission(sub).score;
-      if(sub.autoSubmitted) autoCount++;
-    } else inProgress++;
-  });
-  document.getElementById('statTotal').textContent = submittedCount;
-  document.getElementById('statInProgress').textContent = inProgress;
-  document.getElementById('statAvg').textContent = submittedCount ? (scoreSum/submittedCount).toFixed(1) : '0';
-  document.getElementById('statAuto').textContent = autoCount;
-
-  if(rows.length===0){
-    const tr = document.createElement('tr');
-    tr.className = 'empty-row';
-    tr.innerHTML = `<td colspan="8">${Object.keys(allSubmissions).length ? 'No results match your search.' : 'No submissions yet — results will appear here as students finish the quiz.'}</td>`;
-    tbody.appendChild(tr);
-    return;
-  }
-
-  rows.forEach(({key,sub,score,duration})=>{
-    const tr = document.createElement('tr');
-    const violBadgeClass = (sub.violationCount||0)===0 ? 'ok' : (sub.violationCount>=3?'warn':'mid');
-    const statusBadge = sub.status==='submitted'
-      ? (sub.autoSubmitted ? '<span class="badge warn">Auto-submitted</span>' : '<span class="badge ok">Submitted</span>')
-      : '<span class="badge mid">In progress</span>';
-    const {fastCount, bonus} = scoreSubmission(sub);
-    tr.innerHTML = `
-      <td>${escapeHtml(sub.name||'—')}</td>
-      <td>${escapeHtml(sub.school||'—')}</td>
-      <td>${escapeHtml(sub.grade||'—')}</td>
-      <td><b>${score}</b> / 120${bonus?' <span class="badge ok">+'+bonus+'</span>':''}</td>
-      <td>${fastCount}/${TOTAL_Q}</td>
-      <td><span class="badge ${violBadgeClass}">${sub.violationCount||0}</span></td>
-      <td>${statusBadge}</td>
-      <td>${duration!==null ? duration+'s' : '—'}</td>
-    `;
-    tr.addEventListener('click', ()=>openModal(key));
-    tbody.appendChild(tr);
-  });
-}
-
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-document.getElementById('searchBox').addEventListener('input', renderTable);
-document.getElementById('sortSelect').addEventListener('change', renderTable);
-
-// ---------------- Modal ----------------
-function openModal(key){
-  const sub = allSubmissions[key];
-  const {score, rawScore, bonus, fastCount, details} = scoreSubmission(sub);
-  const violations = sub.violations ? Object.values(sub.violations) : [];
-
-  let html = `<h2>${escapeHtml(sub.name)} — ${score}/120</h2>
-    <p style="color:var(--fern);margin-top:-8px;">${escapeHtml(sub.school)} · ${escapeHtml(sub.grade)}</p>
-    <p style="font-size:13px;color:var(--bark);">Raw: ${rawScore}/115 &nbsp;·&nbsp; Fast answers: ${fastCount}/${TOTAL_Q} (need >${FAST_BONUS_THRESHOLD} for bonus) &nbsp;·&nbsp; Bonus: ${bonus? '+'+bonus : '0'}</p>`;
-
-  if(violations.length){
-    html += `<h3 style="font-size:15px;">Violations (${violations.length})</h3>`;
-    violations.forEach(v=>{
-      html += `<div class="viol-item">${v.type} — ${new Date(v.time).toLocaleTimeString()}</div>`;
+    details.push({
+      id:i, qtext: QUESTION_TEXT[i]||'', given, correct, isCorrect, marks, fast
     });
   }
-
-  html += `<div style="margin-top:10px;">
-    <button class="btn alert" onclick="resetDevice('${sub.deviceId}','${sub.fingerprint||''}')">Allow this device to retake</button>
-  </div>`;
-
-  html += `<h3 style="font-size:15px;margin-top:18px;">Answers</h3>`;
-  details.forEach(d=>{
-    const cls = d.given===undefined ? 'unanswered' : (d.isCorrect ? 'correct' : 'wrong');
-    const givenText = d.given===undefined ? 'No answer' : d.given;
-    html += `<div class="qa-row">
-      <div class="qtxt">${d.id}. ${escapeHtml(d.qtext)} <span style="color:var(--fern);font-weight:400;">(${d.marks} mark${d.marks>1?'s':''}${d.fast?' · fast':''})</span></div>
-      <div class="ans ${cls}">Given: ${escapeHtml(givenText)}</div>
-      ${!d.isCorrect ? `<div class="ans" style="color:#555;">Correct: ${escapeHtml(d.correct)}</div>` : ''}
-    </div>`;
-  });
-
-  document.getElementById('modalContent').innerHTML = html;
-  document.getElementById('modalBg').style.display='flex';
+  const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0;
+  return { score: rawScore + bonus, rawScore, bonus, fastCount, details };
 }
-document.getElementById('modalClose').addEventListener('click', ()=>{
-  document.getElementById('modalBg').style.display='none';
-});
-document.getElementById('modalBg').addEventListener('click', e=>{
-  if(e.target.id==='modalBg') document.getElementById('modalBg').style.display='none';
-});
 
-window.resetDevice = function(deviceId, fingerprint){
-  if(!confirm('Allow this device to take the quiz again? This removes the device lock only — the previous submission stays on record.')) return;
-  db.ref('devices/'+deviceId).remove();
-  if(fingerprint) db.ref('deviceFingerprints/'+fingerprint).remove();
-  alert('Device unlocked. The student must also clear browser storage or use a different browser tab profile, since the local device flag persists in their browser only.');
-};
+function escapeHtml(s){
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-// ---------------- CSV export ----------------
-document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const rows = [['Name','School','Grade','Score /120','Raw /115','Bonus','Fast Answers','Violations','Status','Auto-Submitted','Start Time','End Time']];
-  Object.values(allSubmissions).forEach(sub=>{
-    const {score, rawScore, bonus, fastCount} = scoreSubmission(sub);
-    rows.push([
-      sub.name, sub.school, sub.grade, score, rawScore, bonus, fastCount+'/'+TOTAL_Q, sub.violationCount||0,
-      sub.status, sub.autoSubmitted?'Yes':'No',
-      sub.startTime?new Date(sub.startTime).toISOString():'',
-      sub.endTime?new Date(sub.endTime).toISOString():''
-    ]);
-  });
-  const csv = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href=url; a.download='demeter26_results.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-});
+function formatDuration(start, end){
+  if(!start) return '—';
+  const ms = (end||Date.now()) - start;
+  const m = Math.floor(ms/60000);
+  const s = Math.floor((ms%60000)/1000);
+  return `${m}m ${s}s`;
+}
+
+/* ---------- Login ---------- */
+function friendlyAuthError(ex){
+  const code = (ex && ex.code) || '';
+  const map = {
+    'auth/invalid-email': 'Invalid email address.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/user-not-found': 'No account found for this email. Use Sign up to create one.',
+    'auth/wrong-password': 'Incorrect password. Try again.',
+    'auth/invalid-credential': 'Wrong email or password. If you are new, use Sign up.',
+    'auth/invalid-login-credentials': 'Wrong email or password. If you are new, use Sign up.',
+    'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/email-already-in-use': 'An account already exists for this email. Use Sign in.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/operation-not-allowed': 'Email/password sign-in is disabled in Firebase Console.',
+    'auth/missing-password': 'Please enter a password.',
+    'auth/missing-email': 'Please enter an email.',
+  };
+  if(map[code]) return map[code];
+  const msg = (ex && ex.message) ? String(ex.message) : String(ex||'Unknown error');
+  // Strip Firebase prefix noise
+  return msg.replace(/^Firebase:\\s*/i,'').replace(/\\(auth\\/[^)]+\\)\\.?/,'').trim() || 'Authentication failed.';
+}
+
+function LoginScreen(){
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const switchMode = (m) => {
+    setMode(m);
+    setErr('');
+    setOk('');
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    setOk('');
+    const em = email.trim();
+    if(!em || !pass){
+      setErr('Email and password are required.');
+      return;
+    }
+    if(mode === 'signup'){
+      if(pass.length < 6){
+        setErr('Password must be at least 6 characters.');
+        return;
+      }
+      if(pass !== pass2){
+        setErr('Passwords do not match.');
+        return;
+      }
+    }
+    setLoading(true);
+    try{
+      // Keep session for this browser (standard admin behaviour)
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      if(mode === 'signup'){
+        await auth.createUserWithEmailAndPassword(em, pass);
+        setOk('Account created. You are signed in.');
+      } else {
+        await auth.signInWithEmailAndPassword(em, pass);
+      }
+    }catch(ex){
+      setErr(friendlyAuthError(ex));
+    }finally{
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-screen">
+      <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:400}}>
+        <div className="login-mark">
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+            <path d="M22 3C22 3 9 10 9 23c0 8 6 14 13 18 7-4 13-10 13-18C35 10 22 3 22 3Z" fill="#2D6A4F" stroke="#D9A441" strokeWidth="1.4"/>
+            <path d="M22 8v29M22 15c-4 0-8 2-9.5 6M22 22c4 0 8.5 1.5 10.5 5.5" stroke="#173D2E" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          <span className="tag">Admin console</span>
+        </div>
+        <div className="login-card">
+          <h1>DEMETER 26'</h1>
+          <p className="sub">{mode==='signup' ? 'Create an admin account' : 'Sign in to manage results & retakes'}</p>
+
+          <div className="auth-tabs">
+            <button type="button" className={'auth-tab'+(mode==='signin'?' active':'')} onClick={()=>switchMode('signin')}>Sign in</button>
+            <button type="button" className={'auth-tab'+(mode==='signup'?' active':'')} onClick={()=>switchMode('signup')}>Sign up</button>
+          </div>
+
+          <form onSubmit={submit}>
+            <div className="field">
+              <label>Email</label>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@school.edu" autoComplete="username" required />
+            </div>
+            <div className="field">
+              <label>Password</label>
+              <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="At least 6 characters" autoComplete={mode==='signup'?'new-password':'current-password'} required minLength={6} />
+            </div>
+            {mode==='signup' && (
+              <div className="field">
+                <label>Confirm password</label>
+                <input type="password" value={pass2} onChange={e=>setPass2(e.target.value)} placeholder="Repeat password" autoComplete="new-password" required minLength={6} />
+              </div>
+            )}
+            <button type="submit" disabled={loading}>
+              {loading ? (mode==='signup' ? 'Creating account…' : 'Signing in…') : (mode==='signup' ? 'Create admin account' : 'Sign in')}
+            </button>
+            {err && <div className="login-error">{err}</div>}
+            {ok && <div className="login-ok">{ok}</div>}
+          </form>
+          <p className="auth-hint">
+            {mode==='signup'
+              ? 'Creates a Firebase email/password account for this project. Email/password provider must be enabled in Firebase Console → Authentication.'
+              : 'Use the same email and password you registered with. Session stays signed in on this browser until you sign out.'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Detail Modal ---------- */
+function DetailModal({ sub, subKey, onClose, onRetake, onDelete }){
+  if(!sub) return null;
+  const {score, rawScore, bonus, fastCount, details} = scoreSubmission(sub);
+  const violations = sub.violations || [];
+
+  return (
+    <div className="modal-bg" onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <button className="modal-close" onClick={onClose}>✕</button>
+        <h2>{sub.name}</h2>
+        <p style={{color:'var(--fern)',marginTop:-8}}>{sub.school} · {sub.grade||'—'}</p>
+        <p style={{fontSize:13,color:'var(--bark)'}}>
+          Score: <strong>{score}/120</strong> &nbsp;·&nbsp; Raw: {rawScore}/115 &nbsp;·&nbsp;
+          Fast: {fastCount}/{TOTAL_Q} (need &gt;{FAST_BONUS_THRESHOLD} for +{FAST_BONUS_MARKS}) &nbsp;·&nbsp;
+          Bonus: {bonus ? '+'+bonus : '0'}
+        </p>
+        <p className="muted">
+          Device: {sub.deviceId||'—'} &nbsp;·&nbsp; Status: {sub.status} &nbsp;·&nbsp;
+          {sub.autoSubmitted ? 'Auto-submitted' : 'Manual'} &nbsp;·&nbsp;
+          Duration: {formatDuration(sub.startTime, sub.endTime)}
+        </p>
+
+        <div className="action-row">
+          <button className="btn alert sm" onClick={()=>onRetake(sub)}>Allow device to retake</button>
+          <button className="btn outline sm" onClick={()=>{
+            if(confirm('Permanently delete this submission? This cannot be undone.')) onDelete(subKey);
+          }}>Delete submission</button>
+        </div>
+
+        {violations.length > 0 && (
+          <>
+            <h3 style={{fontSize:15}}>Violations ({violations.length})</h3>
+            {violations.map((v,i)=>(
+              <div key={i} className="viol-item">{v.type} — {v.time ? new Date(v.time).toLocaleTimeString() : ''}</div>
+            ))}
+          </>
+        )}
+
+        <h3 style={{fontSize:15,marginTop:18}}>Answers</h3>
+        {details.map(d=>(
+          <div key={d.id} className="qa-row">
+            <div className="qtxt">{d.id}. {d.qtext} <span style={{color:'var(--fern)',fontWeight:400}}>({d.marks} mark{d.marks>1?'s':''}{d.fast?' · fast':''})</span></div>
+            <div className={`ans ${d.given===undefined?'unanswered':(d.isCorrect?'correct':'wrong')}`}>
+              Given: {d.given===undefined ? 'No answer' : d.given}
+            </div>
+            {!d.isCorrect && <div className="ans" style={{color:'#555'}}>Correct: {d.correct}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Main App ---------- */
+function App(){
+  const [user, setUser] = useState(null);
+  const [subs, setSubs] = useState({});
+  const [devices, setDevices] = useState({});
+  const [fingerprints, setFingerprints] = useState({});
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('score-desc');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [tab, setTab] = useState('results');
+  const [selected, setSelected] = useState(null); // {key, sub}
+  const [busy, setBusy] = useState(false);
+
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(()=>{
+    const unsub = auth.onAuthStateChanged(u => {
+      setUser(u);
+      setAuthReady(true);
+    });
+    return () => unsub();
+  },[]);
+
+  useEffect(()=>{
+    if(!user) return;
+    const ref = db.ref('submissions');
+    const cb = snap => setSubs(snap.val()||{});
+    ref.on('value', cb);
+    return () => ref.off('value', cb);
+  },[user]);
+
+  useEffect(()=>{
+    if(!user) return;
+    const dRef = db.ref('devices');
+    const fRef = db.ref('deviceFingerprints');
+    const dCb = snap => setDevices(snap.val()||{});
+    const fCb = snap => setFingerprints(snap.val()||{});
+    dRef.on('value', dCb);
+    fRef.on('value', fCb);
+    return () => { dRef.off('value', dCb); fRef.off('value', fCb); };
+  },[user]);
+
+  const scored = useMemo(()=>{
+    return Object.entries(subs).map(([key, sub])=>{
+      const sc = scoreSubmission(sub);
+      return { key, sub, ...sc };
+    });
+  },[subs]);
+
+  const stats = useMemo(()=>{
+    let submitted=0, inProgress=0, auto=0, scoreSum=0;
+    scored.forEach(({sub, score})=>{
+      if(sub.status==='submitted'){
+        submitted++;
+        scoreSum += score;
+        if(sub.autoSubmitted) auto++;
+      } else if(sub.status==='in-progress') inProgress++;
+    });
+    return {
+      total: submitted,
+      inProgress,
+      avg: submitted ? (scoreSum/submitted).toFixed(1) : '0',
+      auto,
+      devices: Object.keys(devices).length,
+      all: scored.length
+    };
+  },[scored, devices]);
+
+  const filtered = useMemo(()=>{
+    let list = [...scored];
+    const q = search.trim().toLowerCase();
+    if(q){
+      list = list.filter(({sub})=>
+        (sub.name||'').toLowerCase().includes(q) ||
+        (sub.school||'').toLowerCase().includes(q) ||
+        (sub.grade||'').toLowerCase().includes(q)
+      );
+    }
+    if(filterStatus==='submitted') list = list.filter(({sub})=>sub.status==='submitted');
+    if(filterStatus==='in-progress') list = list.filter(({sub})=>sub.status==='in-progress');
+    if(filterStatus==='auto') list = list.filter(({sub})=>sub.autoSubmitted);
+
+    list.sort((a,b)=>{
+      if(sort==='score-desc') return b.score - a.score;
+      if(sort==='score-asc') return a.score - b.score;
+      if(sort==='time-desc') return (b.sub.endTime||b.sub.startTime||0) - (a.sub.endTime||a.sub.startTime||0);
+      if(sort==='violations-desc') return (b.sub.violationCount||0) - (a.sub.violationCount||0);
+      if(sort==='name') return (a.sub.name||'').localeCompare(b.sub.name||'');
+      return 0;
+    });
+    return list;
+  },[scored, search, sort, filterStatus]);
+
+  const leaderboard = useMemo(()=>{
+    return scored
+      .filter(({sub})=>sub.status==='submitted')
+      .sort((a,b)=>b.score-a.score)
+      .slice(0,15);
+  },[scored]);
+
+  const allowRetake = useCallback(async (sub)=>{
+    if(!confirm('Allow this device to take the quiz again?\n\nThis removes the server-side device lock. The previous submission stays on record.\nThe student only needs to refresh the quiz page — local storage is auto-cleared when the server lock is gone.')) return;
+    setBusy(true);
+    try{
+      if(sub.deviceId) await db.ref('devices/'+sub.deviceId).remove();
+      if(sub.fingerprint) await db.ref('deviceFingerprints/'+sub.fingerprint).remove();
+      alert('Device unlocked. Student can now refresh the quiz page and retake.');
+    }catch(e){
+      alert('Failed: '+e.message);
+    }finally{
+      setBusy(false);
+    }
+  },[]);
+
+  const deleteSubmission = useCallback(async (key)=>{
+    setBusy(true);
+    try{
+      await db.ref('submissions/'+key).remove();
+      setSelected(null);
+    }catch(e){
+      alert('Delete failed: '+e.message);
+    }finally{
+      setBusy(false);
+    }
+  },[]);
+
+  const unlockDevice = useCallback(async (deviceId)=>{
+    if(!confirm('Unlock device '+deviceId+'?')) return;
+    setBusy(true);
+    try{
+      await db.ref('devices/'+deviceId).remove();
+    }catch(e){ alert(e.message); }
+    finally{ setBusy(false); }
+  },[]);
+
+  const unlockFingerprint = useCallback(async (fp)=>{
+    if(!confirm('Unlock fingerprint?')) return;
+    setBusy(true);
+    try{
+      await db.ref('deviceFingerprints/'+fp).remove();
+    }catch(e){ alert(e.message); }
+    finally{ setBusy(false); }
+  },[]);
+
+  const clearAllDevices = useCallback(async ()=>{
+    if(!confirm('Remove ALL device locks? Every student will be able to retake (after refresh).')) return;
+    setBusy(true);
+    try{
+      await db.ref('devices').remove();
+      await db.ref('deviceFingerprints').remove();
+      alert('All device locks cleared.');
+    }catch(e){ alert(e.message); }
+    finally{ setBusy(false); }
+  },[]);
+
+  const exportCsv = useCallback(()=>{
+    const rows = [['Name','School','Grade','Score /120','Raw /115','Bonus','Fast Answers','Violations','Status','Auto-Submitted','Start Time','End Time','Device ID']];
+    scored.forEach(({sub, score, rawScore, bonus, fastCount})=>{
+      rows.push([
+        sub.name, sub.school, sub.grade, score, rawScore, bonus, fastCount+'/'+TOTAL_Q, sub.violationCount||0,
+        sub.status, sub.autoSubmitted?'Yes':'No',
+        sub.startTime?new Date(sub.startTime).toISOString():'',
+        sub.endTime?new Date(sub.endTime).toISOString():'',
+        sub.deviceId||''
+      ]);
+    });
+    const csv = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='demeter26_results.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  },[scored]);
+
+  if(!authReady){
+    return <div className="auth-loading">Checking session…</div>;
+  }
+  if(!user) return <LoginScreen />;
+
+  return (
+    <div className="dash">
+      <div className="header">
+        <div>
+          <div className="eyebrow">Live results · React admin</div>
+          <h1>DEMETER 26' Dashboard</h1>
+          <p className="sub">Real-time submissions · Retake controls · Device management</p>
+        </div>
+        <div className="header-actions" style={{alignItems:'center'}}>
+          <span className="muted" style={{fontSize:12.5}}>{user.email}</span>
+          <button className="btn outline" onClick={()=>auth.signOut()}>Sign out</button>
+        </div>
+      </div>
+
+      <div className="stats">
+        <div className="stat"><div className="num">{stats.total}</div><div className="label">Submitted</div></div>
+        <div className="stat"><div className="num">{stats.inProgress}</div><div className="label">In progress</div></div>
+        <div className="stat"><div className="num">{stats.avg}</div><div className="label">Avg score</div></div>
+        <div className="stat"><div className="num">{stats.auto}</div><div className="label">Auto-submitted</div></div>
+        <div className="stat"><div className="num">{stats.devices}</div><div className="label">Locked devices</div></div>
+      </div>
+
+      <div className="tabs">
+        <button className={`tab ${tab==='results'?'active':''}`} onClick={()=>setTab('results')}>Results</button>
+        <button className={`tab ${tab==='leaderboard'?'active':''}`} onClick={()=>setTab('leaderboard')}>Leaderboard</button>
+        <button className={`tab ${tab==='devices'?'active':''}`} onClick={()=>setTab('devices')}>Devices & Retakes</button>
+        <button className={`tab ${tab==='tools'?'active':''}`} onClick={()=>setTab('tools')}>Tools</button>
+      </div>
+
+      {tab==='results' && (
+        <>
+          <div className="toolbar">
+            <input type="text" placeholder="Search name, school or grade…" value={search} onChange={e=>setSearch(e.target.value)} />
+            <select value={sort} onChange={e=>setSort(e.target.value)}>
+              <option value="score-desc">Score (high→low)</option>
+              <option value="score-asc">Score (low→high)</option>
+              <option value="time-desc">Newest first</option>
+              <option value="violations-desc">Most violations</option>
+              <option value="name">Name A–Z</option>
+            </select>
+            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="submitted">Submitted only</option>
+              <option value="in-progress">In progress</option>
+              <option value="auto">Auto-submitted</option>
+            </select>
+            <button className="btn" onClick={exportCsv}>Export CSV</button>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th><th>School</th><th>Grade</th><th>Score /120</th>
+                  <th>Fast</th><th>Violations</th><th>Status</th><th>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length===0 ? (
+                  <tr className="empty-row"><td colSpan="8">
+                    {Object.keys(subs).length ? 'No results match your filters.' : 'No submissions yet — results appear here as students finish.'}
+                  </td></tr>
+                ) : filtered.map(({key, sub, score, fastCount})=>(
+                  <tr key={key} onClick={()=>setSelected({key, sub})}>
+                    <td>{sub.name}</td>
+                    <td>{sub.school}</td>
+                    <td>{sub.grade||'—'}</td>
+                    <td><strong>{score}</strong></td>
+                    <td>{fastCount}/{TOTAL_Q}</td>
+                    <td>{sub.violationCount||0}</td>
+                    <td>
+                      {sub.status==='submitted'
+                        ? (sub.autoSubmitted ? <span className="badge warn">Auto</span> : <span className="badge ok">Submitted</span>)
+                        : <span className="badge mid">In progress</span>}
+                    </td>
+                    <td>{formatDuration(sub.startTime, sub.endTime)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab==='leaderboard' && (
+        <div className="panel">
+          <h3>Top scores</h3>
+          <p>Live ranking of submitted quizzes (max 120).</p>
+          <div className="leaderboard">
+            {leaderboard.length===0 && <p className="muted">No submitted scores yet.</p>}
+            {leaderboard.map(({sub, score}, i)=>(
+              <div key={i} className="lb-row">
+                <div className="lb-rank">#{i+1}</div>
+                <div className="lb-name">{sub.name} <span className="muted">· {sub.school}</span></div>
+                <div className="lb-score">{score}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab==='devices' && (
+        <>
+          <div className="panel">
+            <h3>Device locks</h3>
+            <p>
+              When a student starts the quiz, their device ID and fingerprint are locked in Firebase.
+              Use <strong>Allow retake</strong> on a result (or unlock here) to let them try again.
+              After unlock they only need to <strong>refresh the quiz page</strong> — the local flag is cleared automatically.
+            </p>
+            <button className="btn alert sm" onClick={clearAllDevices} disabled={busy}>Clear ALL device locks</button>
+          </div>
+
+          <div className="panel">
+            <h3>Active device IDs ({Object.keys(devices).length})</h3>
+            <ul className="device-list">
+              {Object.keys(devices).length===0 && <li className="muted">None locked</li>}
+              {Object.entries(devices).map(([id, data])=>(
+                <li key={id}>
+                  <div>
+                    <code style={{fontSize:12}}>{id}</code>
+                    <div className="muted">{data.submissionKey ? 'Submission: '+data.submissionKey : 'Reserved'} · {data.reservedAt ? new Date(data.reservedAt).toLocaleString() : ''}</div>
+                  </div>
+                  <button className="btn outline sm" onClick={()=>unlockDevice(id)} disabled={busy}>Unlock</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="panel">
+            <h3>Fingerprints ({Object.keys(fingerprints).length})</h3>
+            <ul className="device-list">
+              {Object.keys(fingerprints).length===0 && <li className="muted">None locked</li>}
+              {Object.entries(fingerprints).map(([fp, data])=>(
+                <li key={fp}>
+                  <div>
+                    <code style={{fontSize:11}}>{fp.slice(0,24)}…</code>
+                    <div className="muted">{data.reservedAt ? new Date(data.reservedAt).toLocaleString() : ''}</div>
+                  </div>
+                  <button className="btn outline sm" onClick={()=>unlockFingerprint(fp)} disabled={busy}>Unlock</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+
+      {tab==='tools' && (
+        <>
+          <div className="panel">
+            <h3>Export</h3>
+            <p>Download all submissions as CSV for marking sheets or analysis.</p>
+            <button className="btn" onClick={exportCsv}>Export CSV</button>
+          </div>
+          <div className="panel">
+            <h3>Retake how-to</h3>
+            <p>
+              1. Open a student’s result → click <strong>Allow device to retake</strong>.<br/>
+              2. Or go to <strong>Devices & Retakes</strong> and unlock the device / fingerprint.<br/>
+              3. Student refreshes the quiz page (index.html). Local “already submitted” flag is cleared automatically when the server lock is gone.<br/>
+              4. Previous submission remains in the results list unless you delete it.
+            </p>
+          </div>
+          <div className="panel">
+            <h3>Scoring rules</h3>
+            <p>
+              Q1–15: 1 mark each (15) · Q16–35: 2 marks (40) · Q36–50: 4 marks (60) = 115 raw.<br/>
+              +5 bonus if more than {FAST_BONUS_THRESHOLD} answers were given in the first 10s of the 20s window. Max 120.
+            </p>
+          </div>
+        </>
+      )}
+
+      {selected && (
+        <DetailModal
+          sub={selected.sub}
+          subKey={selected.key}
+          onClose={()=>setSelected(null)}
+          onRetake={(sub)=>{ allowRetake(sub); }}
+          onDelete={(key)=>{ deleteSubmission(key); }}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>

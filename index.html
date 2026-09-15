@@ -318,16 +318,23 @@ const regError = document.getElementById('regError');
 const startBtn = document.getElementById('startBtn');
 
 async function checkDeviceEligibility(){
-  if(localStorage.getItem('demeter_submitted') === 'true') return false;
   try{
     const snap1 = await db.ref('devices/'+deviceId).get();
-    if(snap1.exists()) return false;
     const snap2 = await db.ref('deviceFingerprints/'+fingerprint).get();
-    if(snap2.exists()) return false;
+    const locked = snap1.exists() || snap2.exists();
+    if(!locked){
+      // Admin allowed a retake (or never used) — clear any stale local flag
+      localStorage.removeItem('demeter_submitted');
+      return true;
+    }
+    // Still locked in Firebase — respect local flag too
+    if(localStorage.getItem('demeter_submitted') === 'true') return false;
+    return false;
   }catch(e){
     console.error('Eligibility check failed', e);
+    // On network error, fall back to local flag only
+    return localStorage.getItem('demeter_submitted') !== 'true';
   }
-  return true;
 }
 
 (async function init(){
