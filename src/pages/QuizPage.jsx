@@ -65,9 +65,10 @@ export default function QuizPage() {
   const langRef = useRef('en')
 
   const t = useCallback((key) => {
-    if (langRef.current === 'si' && UI_SI?.[key]) return UI_SI[key]
+    // Use lang state (not langRef) so UI updates immediately when switching language
+    if (lang === 'si' && UI_SI && UI_SI[key]) return UI_SI[key]
     return UI_EN[key] || key
-  }, [])
+  }, [lang])
 
   useEffect(() => {
     answersRef.current = answers
