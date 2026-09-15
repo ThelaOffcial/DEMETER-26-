@@ -555,7 +555,10 @@ export default function AdminPage() {
     URL.revokeObjectURL(url)
   }, [scored])
 
-  const exportWinnersPoster = useCallback(() => {
+
+  const [posterBgFile, setPosterBgFile] = useState(null) // File from user upload
+
+  const exportWinnersPoster = useCallback(async () => {
     if (schoolRankings.length === 0) {
       alert('No submitted results yet to generate a poster.')
       return
@@ -568,117 +571,186 @@ export default function AdminPage() {
     canvas.height = H
     const ctx = canvas.getContext('2d')
 
-    // Background gradient
-    const bg = ctx.createLinearGradient(0, 0, W, H)
-    bg.addColorStop(0, '#0A1F18')
-    bg.addColorStop(0.45, '#173D2E')
-    bg.addColorStop(1, '#0F2A20')
-    ctx.fillStyle = bg
+    const loadImg = (src) =>
+      new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = src
+      })
+
+    // Background image: user upload → /poster-bg.png → gradient fallback
+    let bgImg = null
+    try {
+      if (posterBgFile) {
+        bgImg = await loadImg(URL.createObjectURL(posterBgFile))
+      } else {
+        bgImg = await loadImg('/poster-bg.png')
+      }
+    } catch (e) {
+      bgImg = null
+    }
+
+    if (bgImg) {
+      // Cover-fit draw
+      const scale = Math.max(W / bgImg.width, H / bgImg.height)
+      const dw = bgImg.width * scale
+      const dh = bgImg.height * scale
+      const dx = (W - dw) / 2
+      const dy = (H - dh) / 2
+      ctx.drawImage(bgImg, dx, dy, dw, dh)
+    } else {
+      const bg = ctx.createLinearGradient(0, 0, W, H)
+      bg.addColorStop(0, '#0A1F18')
+      bg.addColorStop(0.5, '#173D2E')
+      bg.addColorStop(1, '#0A1628')
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    // Dark vignette so text stays readable
+    const vig = ctx.createRadialGradient(W / 2, H * 0.55, 120, W / 2, H * 0.5, H * 0.75)
+    vig.addColorStop(0, 'rgba(0,0,0,0.15)')
+    vig.addColorStop(1, 'rgba(0,0,0,0.55)')
+    ctx.fillStyle = vig
     ctx.fillRect(0, 0, W, H)
 
-    // Soft gold glow top
-    const glow = ctx.createRadialGradient(W * 0.5, 80, 20, W * 0.5, 120, 420)
-    glow.addColorStop(0, 'rgba(217,164,65,0.28)')
-    glow.addColorStop(1, 'rgba(217,164,65,0)')
-    ctx.fillStyle = glow
-    ctx.fillRect(0, 0, W, 500)
+    // ---- Frosted / blurred glass panel for rankings ----
+    const panelX = 56
+    const panelY = 280
+    const panelW = W - 112
+    const panelH = 820
+    const radius = 28
 
-    // Corner accent lines
-    ctx.strokeStyle = 'rgba(217,164,65,0.35)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(48, 48)
-    ctx.lineTo(180, 48)
-    ctx.moveTo(48, 48)
-    ctx.lineTo(48, 180)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(W - 48, H - 48)
-    ctx.lineTo(W - 180, H - 48)
-    ctx.moveTo(W - 48, H - 48)
-    ctx.lineTo(W - 48, H - 180)
-    ctx.stroke()
+    // Blur the background region under the panel
+    try {
+      const tmp = document.createElement('canvas')
+      tmp.width = panelW
+      tmp.height = panelH
+      const tctx = tmp.getContext('2d')
+      tctx.drawImage(canvas, panelX, panelY, panelW, panelH, 0, 0, panelW, panelH)
+      tctx.filter = 'blur(18px)'
+      // Re-draw self with blur (browser applies filter on drawImage)
+      const tmp2 = document.createElement('canvas')
+      tmp2.width = panelW
+      tmp2.height = panelH
+      const t2 = tmp2.getContext('2d')
+      t2.filter = 'blur(18px)'
+      t2.drawImage(tmp, 0, 0)
+      ctx.save()
+      roundRectPath(ctx, panelX, panelY, panelW, panelH, radius)
+      ctx.clip()
+      ctx.drawImage(tmp2, panelX, panelY)
+      ctx.restore()
+    } catch (e) {
+      // ignore blur failures
+    }
 
-    // Eyebrow
-    ctx.fillStyle = '#D9A441'
-    ctx.font = '600 22px "Work Sans", system-ui, sans-serif'
+    // Semi-transparent glass fill + border
+    ctx.save()
+    roundRectPath(ctx, panelX, panelY, panelW, panelH, radius)
+    ctx.fillStyle = 'rgba(8, 20, 28, 0.55)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.restore()
+
+    // Inner soft highlight line
+    ctx.save()
+    roundRectPath(ctx, panelX + 1, panelY + 1, panelW - 2, panelH - 2, radius - 1)
+    ctx.strokeStyle = 'rgba(217,164,65,0.25)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    ctx.restore()
+
+    // ---- Header text (above panel, on photo) ----
     ctx.textAlign = 'center'
-    ctx.letterSpacing = '6px'
-    ctx.fillText('ALL ISLAND INTER SCHOOL ECO QUIZ', W / 2, 100)
+    ctx.fillStyle = 'rgba(217,164,65,0.95)'
+    ctx.font = '600 20px "Work Sans", system-ui, sans-serif'
+    ctx.fillText('ALL ISLAND INTER SCHOOL ECO QUIZ', W / 2, 90)
 
-    // Title
-    ctx.fillStyle = '#F1F3EA'
-    ctx.font = '700 72px "Fraunces", Georgia, serif'
-    ctx.fillText("DEMETER 26'", W / 2, 185)
+    ctx.fillStyle = '#FFFFFF'
+    ctx.font = '700 64px "Fraunces", Georgia, serif'
+    ctx.fillText("DEMETER 26'", W / 2, 165)
 
-    // Subtitle
-    ctx.fillStyle = 'rgba(241,243,234,0.75)'
-    ctx.font = '500 28px "Work Sans", system-ui, sans-serif'
-    ctx.fillText('TOP 5 WINNING SCHOOLS', W / 2, 240)
+    ctx.fillStyle = 'rgba(241,243,234,0.9)'
+    ctx.font = '600 26px "Work Sans", system-ui, sans-serif'
+    ctx.fillText('TOP 5 WINNING SCHOOLS', W / 2, 215)
 
-    // Gold divider
+    // Gold line under subtitle
     ctx.strokeStyle = '#D9A441'
     ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.moveTo(W / 2 - 80, 268)
-    ctx.lineTo(W / 2 + 80, 268)
+    ctx.moveTo(W / 2 - 70, 235)
+    ctx.lineTo(W / 2 + 70, 235)
     ctx.stroke()
 
-    const medals = ['#D9A441', '#C0C7CE', '#C47B3A', '#7C9A8E', '#7C9A8E']
-    const startY = 320
-    const rowH = 150
+    // ---- Ranking rows inside blurred panel ----
+    const medals = ['#D9A441', '#C8CDD2', '#C47B3A', '#8FA89A', '#8FA89A']
+    const rowStart = panelY + 36
+    const rowH = 148
 
     schoolRankings.forEach((row, i) => {
-      const y = startY + i * rowH
-      // Card background
-      ctx.fillStyle = i === 0 ? 'rgba(217,164,65,0.14)' : 'rgba(255,255,255,0.05)'
-      roundRect(ctx, 64, y, W - 128, 128, 20)
+      const y = rowStart + i * rowH
+
+      // Row strip
+      ctx.fillStyle =
+        i === 0 ? 'rgba(217,164,65,0.18)' : 'rgba(255,255,255,0.06)'
+      roundRectPath(ctx, panelX + 24, y, panelW - 48, 128, 16)
       ctx.fill()
-      ctx.strokeStyle = i === 0 ? 'rgba(217,164,65,0.55)' : 'rgba(255,255,255,0.08)'
-      ctx.lineWidth = 1.5
-      roundRect(ctx, 64, y, W - 128, 128, 20)
+      ctx.strokeStyle =
+        i === 0 ? 'rgba(217,164,65,0.5)' : 'rgba(255,255,255,0.1)'
+      ctx.lineWidth = 1
+      roundRectPath(ctx, panelX + 24, y, panelW - 48, 128, 16)
       ctx.stroke()
 
-      // Rank circle
+      // Rank badge
       ctx.beginPath()
-      ctx.arc(130, y + 64, 32, 0, Math.PI * 2)
-      ctx.fillStyle = medals[i] || '#7C9A8E'
+      ctx.arc(panelX + 88, y + 64, 30, 0, Math.PI * 2)
+      ctx.fillStyle = medals[i] || '#8FA89A'
       ctx.fill()
-      ctx.fillStyle = i < 3 ? '#0F2A20' : '#F1F3EA'
-      ctx.font = '700 28px "Fraunces", Georgia, serif'
+      ctx.fillStyle = i < 3 ? '#0A1F18' : '#F1F3EA'
+      ctx.font = '700 26px "Fraunces", Georgia, serif'
       ctx.textAlign = 'center'
-      ctx.fillText(String(i + 1), 130, y + 74)
+      ctx.fillText(String(i + 1), panelX + 88, y + 73)
 
-      // School name
+      // School
       ctx.textAlign = 'left'
-      ctx.fillStyle = '#F1F3EA'
-      ctx.font = '600 32px "Work Sans", system-ui, sans-serif'
-      const schoolName = truncate(ctx, row.school, W - 360)
-      ctx.fillText(schoolName, 190, y + 52)
+      ctx.fillStyle = '#FFFFFF'
+      ctx.font = '600 28px "Work Sans", system-ui, sans-serif'
+      ctx.fillText(truncateText(ctx, row.school, panelW - 320), panelX + 140, y + 50)
 
       // Student
-      ctx.fillStyle = 'rgba(241,243,234,0.65)'
-      ctx.font = '500 22px "Work Sans", system-ui, sans-serif'
+      ctx.fillStyle = 'rgba(241,243,234,0.7)'
+      ctx.font = '500 20px "Work Sans", system-ui, sans-serif'
       const studentLine = row.grade
         ? `${row.name}  ·  ${row.grade}`
         : row.name
-      ctx.fillText(truncate(ctx, studentLine, W - 360), 190, y + 90)
+      ctx.fillText(
+        truncateText(ctx, studentLine, panelW - 320),
+        panelX + 140,
+        y + 88
+      )
 
       // Score
       ctx.textAlign = 'right'
       ctx.fillStyle = '#D9A441'
-      ctx.font = '700 40px "Fraunces", Georgia, serif'
-      ctx.fillText(String(row.score), W - 100, y + 72)
-      ctx.fillStyle = 'rgba(241,243,234,0.5)'
-      ctx.font = '500 16px "Work Sans", system-ui, sans-serif'
-      ctx.fillText('/ 120', W - 100, y + 98)
+      ctx.font = '700 36px "Fraunces", Georgia, serif'
+      ctx.fillText(String(row.score), panelX + panelW - 48, y + 62)
+      ctx.fillStyle = 'rgba(241,243,234,0.55)'
+      ctx.font = '500 15px "Work Sans", system-ui, sans-serif'
+      ctx.fillText('/ 120', panelX + panelW - 48, y + 90)
     })
 
-    // Footer
+    // Footer bar
+    ctx.fillStyle = 'rgba(0,0,0,0.65)'
+    ctx.fillRect(0, H - 70, W, 70)
     ctx.textAlign = 'center'
-    ctx.fillStyle = 'rgba(241,243,234,0.45)'
-    ctx.font = '500 20px "Work Sans", system-ui, sans-serif'
-    ctx.fillText('First Round Results  ·  Powered by SSCICTS', W / 2, H - 56)
+    ctx.fillStyle = 'rgba(241,243,234,0.75)'
+    ctx.font = '500 18px "Work Sans", system-ui, sans-serif'
+    ctx.fillText('First Round Results  ·  Powered by SSCICTS', W / 2, H - 28)
 
     canvas.toBlob((blob) => {
       if (!blob) {
@@ -692,9 +764,9 @@ export default function AdminPage() {
       a.click()
       URL.revokeObjectURL(url)
     }, 'image/png')
-  }, [schoolRankings])
+  }, [schoolRankings, posterBgFile])
 
-  function roundRect(ctx, x, y, w, h, r) {
+  function roundRectPath(ctx, x, y, w, h, r) {
     ctx.beginPath()
     ctx.moveTo(x + r, y)
     ctx.arcTo(x + w, y, x + w, y + h, r)
@@ -704,9 +776,9 @@ export default function AdminPage() {
     ctx.closePath()
   }
 
-  function truncate(ctx, text, maxW) {
+  function truncateText(ctx, text, maxW) {
     if (ctx.measureText(text).width <= maxW) return text
-    let s = text
+    let s = String(text || '')
     while (s.length > 0 && ctx.measureText(s + '…').width > maxW) {
       s = s.slice(0, -1)
     }
@@ -892,9 +964,23 @@ export default function AdminPage() {
           <div className="panel">
             <h3>Top 5 winning schools</h3>
             <p>
-              Ranked by each school&apos;s highest student score. Export a
-              modern shareable poster for social media.
+              Ranked by each school&apos;s highest student score. Export uses your
+              night-landscape background with a blurred glass panel for the list.
             </p>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', marginBottom: 6 }}>
+                Poster background image
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPosterBgFile(e.target.files?.[0] || null)}
+              />
+              <p className="muted" style={{ marginTop: 8 }}>
+                Optional. Or place <code>poster-bg.png</code> in the site{' '}
+                <code>public/</code> folder. Without an image, a dark gradient is used.
+              </p>
+            </div>
             <button
               className="btn"
               onClick={exportWinnersPoster}
