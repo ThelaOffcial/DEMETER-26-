@@ -45,7 +45,7 @@ export const QUESTION_BANK = [
   { id: 41, q: "A mountain range and a river in Pakistan are:", options: ["Hindu Kush and Sulaiman", "Sutlej and Godavari", "Sulaiman and Indus", "Indus and Ghats"] },
   { id: 42, q: "The first farming colony in Sri Lanka is:", options: ["Gal Oya", "Maduru Oya", "Mahaweli", "Kalu Ganga"] },
   { id: 43, q: "The expansion of ATP, and the result of anaerobic respiration, respectively:", options: ["Adenosine Tri Purate", "Adenosine Triple Potash", "Adenosine Tri Pospate", "Adrenosine Tri Pospate"] },
-  { id: 44, q: "Ipomea aquatica and Macaca sinica are:", options: ["Water Spinach and Purple Faced Langur", "Spinach and Ceylon Toque Macaque", "Water Spinach and Ceylon Toque Macaque", "Mango and Purple Faced Langur"] },
+  { id: 44, q: "How many rivers are there in Sri Lanka?", options: ["150", "103", "108", "120"] },
   { id: 45, q: "Which region experiences high rainfall due to El-Nino?", options: ["South Asia", "East Africa", "Mediterranean Area", "Southeast Asia"] },
 
   // --- Image-based questions. Images are embedded directly as base64 so the
