@@ -1,61 +1,35 @@
 # DEMETER 26' — React App
 
-Real **React + Vite** project (not CDN HTML).
+## Routes
 
-## Structure
+| Path | Page |
+|------|------|
+| `/` | Student quiz |
+| `/admin` | Admin console (Sign up / Sign in) |
 
-```
-demeter-app/
-  index.html
-  package.json
-  vite.config.js
-  src/
-    main.jsx
-    App.jsx
-    pages/
-      QuizPage.jsx      # Student quiz  →  /
-      AdminPage.jsx     # Admin console →  /admin
-    lib/
-      firebase.js
-      scoring.js        # Answer key (admin only)
-      device.js
-      uiStrings.js
-    data/
-      questions.js
-      translations.js
-    styles/index.css
-```
-
-## Run
+## Local
 
 ```bash
-cd demeter-app
 npm install
 npm run dev
 ```
 
-- Student: http://localhost:5173/
-- Admin:   http://localhost:5173/admin
+## Deploy to Vercel
 
-## Build for production
+**Important:** Deploy this **Vite React** project (not old single HTML files).
 
-```bash
-npm run build
-```
+1. Push `demeter-app` to GitHub, or use Vercel CLI from this folder.
+2. Framework preset: **Vite**
+3. Build command: `npm run build`
+4. Output directory: `dist`
+5. `vercel.json` is included so `/admin` does not 404 (SPA rewrite → `index.html`).
 
-Output in `dist/`. Deploy the `dist` folder to any static host.
+### If admin still 404s
 
-## Features
+In Vercel project → Settings → ensure Root Directory points at the folder that contains `package.json` and `vite.config.js`, then **Redeploy**.
 
-**Student**
-- EN / සිංහල
-- 10s read + 20s answer, fast bonus, image questions
-- Anti-cheat (fullscreen, violations)
-- Device lock + admin retake support
+Without `vercel.json` rewrites, Vercel looks for a real `/admin` file and returns 404.
 
-**Admin**
-- Sign up / Sign in (Firebase Auth)
-- Live results, leaderboard, CSV
-- Allow retake, unlock devices, delete submissions
+## Firebase
 
-Enable **Email/Password** in Firebase Console → Authentication.
+Enable **Authentication → Email/Password** in Firebase Console so admin Sign up works.
