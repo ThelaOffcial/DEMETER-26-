@@ -150,7 +150,7 @@ const FILTERS = [
   ['flagged', 'Violations'],
 ]
 
-export function Submissions({ scored, onOpen, onExport }) {
+export function Submissions({ scored, onOpen, onExport, onExportPdf }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState('score-desc')
@@ -207,6 +207,9 @@ export function Submissions({ scored, onOpen, onExport }) {
           </select>
           <button className="a-btn" onClick={onExport}>
             <Icon name="download" size={16} /> CSV
+          </button>
+          <button className="a-btn" onClick={onExportPdf}>
+            <Icon name="download" size={16} /> PDF
           </button>
         </div>
         <div className="chips">

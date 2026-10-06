@@ -16,9 +16,9 @@ export const UI_EN = {
     'If you believe this was a mistake, please contact the quiz coordinators.',
   ruleHeading: 'Before you start:',
   rule1:
-    '50 questions. Each question: 10 seconds to read, then 20 seconds to answer — the quiz moves on automatically.',
+    '50 questions. Each question: 10 seconds to read, then 15 seconds to answer — the quiz moves on automatically.',
   rule2:
-    'If you answer before the 20 seconds are up, the quiz moves to the next question shortly after — no need to wait out the timer.',
+    'If you answer before the 15 seconds are up, the quiz moves to the next question shortly after — no need to wait out the timer.',
   rule3: "There is no going back once a question's time is up.",
   rule4: 'Answering quickly and correctly can earn you bonus marks.',
   rule5: 'Only one submission per device is allowed.',
@@ -55,8 +55,8 @@ export const UI_SI = {
   autoSubmitMsgPrefix: 'ඔබේ ප්‍රශ්නාවලිය ස්වයංක්‍රීයව ඉදිරිපත් කරන ලදී',
   autoSubmitMsgSuffix: 'මෙය වැරදීමක් යැයි ඔබ සිතන්නේ නම්, කරුණාකර ප්‍රශ්නාවලි සම්බන්ධීකරුවන් අමතන්න.',
   ruleHeading: 'ආරම්භ කිරීමට පෙර:',
-  rule1: 'ප්‍රශ්න 50ක්. සෑම ප්‍රශ්නයක්ම: කියවීමට තත්පර 10ක්, පසුව පිළිතුරු දීමට තත්පර 20ක් — ප්‍රශ්නාවලිය ස්වයංක්‍රීයව ඉදිරියට යයි.',
-  rule2: 'තත්පර 20 අවසන් වීමට පෙර ඔබ පිළිතුරු දුන්නොත්, ටික වේලාවකින් ප්‍රශ්නාවලිය ඊළඟ ප්‍රශ්නයට යයි — කාලය අවසන් වන තෙක් රැඳී සිටිය යුතු නැත.',
+  rule1: 'ප්‍රශ්න 50ක්. සෑම ප්‍රශ්නයක්ම: කියවීමට තත්පර 10ක්, පසුව පිළිතුරු දීමට තත්පර 15ක් — ප්‍රශ්නාවලිය ස්වයංක්‍රීයව ඉදිරියට යයි.',
+  rule2: 'තත්පර 15 අවසන් වීමට පෙර ඔබ පිළිතුරු දුන්නොත්, ටික වේලාවකින් ප්‍රශ්නාවලිය ඊළඟ ප්‍රශ්නයට යයි — කාලය අවසන් වන තෙක් රැඳී සිටිය යුතු නැත.',
   rule3: 'ප්‍රශ්නයක කාලය අවසන් වූ පසු ආපසු යා නොහැක.',
   rule4: 'වේගයෙන් හා නිවැරදිව පිළිතුරු දීමෙන් ඔබට අමතර ලකුණු ලබා ගත හැක.',
   rule5: 'එක් උපාංගයකට එක් ඉදිරිපත් කිරීමක් පමණක් අවසර ඇත.',

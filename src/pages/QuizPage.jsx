@@ -12,7 +12,7 @@ import {
 } from '../lib/device'
 
 const READ_SECONDS = 10
-const ANSWER_SECONDS = 20
+const ANSWER_SECONDS = 15
 const MAX_VIOLATIONS = 3
 const FS_GRACE_SECONDS = 5
 const FAST_ADVANCE_DELAY = 1200

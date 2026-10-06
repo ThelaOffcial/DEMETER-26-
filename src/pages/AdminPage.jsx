@@ -6,6 +6,7 @@ import { QUESTION_BANK } from '../data/questions'
 import { ANSWER_KEY, TOTAL_Q, MAX_SCORE, mergeKey, scoreSubmission, normalizeSubmission } from '../lib/scoring'
 import { generatePoster } from '../lib/poster'
 import { downloadText } from '../lib/format'
+import { exportResultsPdf } from '../lib/pdfExport'
 import Login from './admin/Login'
 import Drawer from './admin/Drawer'
 import { Icon } from './admin/ui'
@@ -312,6 +313,10 @@ export default function AdminPage() {
     downloadText('demeter26_round2_results.csv', '\ufeff' + csv)
   }, [scored])
 
+  const exportPdf = useCallback(() => {
+    exportResultsPdf(scored, { maxScore: MAX_SCORE, totalQ: TOTAL_Q })
+  }, [scored])
+
   const makePoster = useCallback(async () => {
     setPosterBusy(true)
     try {
@@ -383,6 +388,9 @@ export default function AdminPage() {
             <button className="a-btn" onClick={exportCsv}>
               <Icon name="download" size={16} /> Export
             </button>
+            <button className="a-btn" onClick={exportPdf}>
+              <Icon name="download" size={16} /> PDF
+            </button>
           </div>
         </header>
 
@@ -396,7 +404,7 @@ export default function AdminPage() {
             setView={go}
           />
         )}
-        {view === 'submissions' && <Submissions scored={scored} onOpen={setSelectedKey} onExport={exportCsv} />}
+        {view === 'submissions' && <Submissions scored={scored} onOpen={setSelectedKey} onExport={exportCsv} onExportPdf={exportPdf} />}
         {view === 'leaderboard' && (
           <Leaderboard
             scored={scored}
