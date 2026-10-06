@@ -1,4 +1,4 @@
-# DEMETER 26' — React App
+# DEMETER 26' — React App (Round 2 · Sinhala medium)
 
 ## Routes
 
@@ -33,3 +33,10 @@ Without `vercel.json` rewrites, Vercel looks for a real `/admin` file and return
 ## Firebase
 
 Enable **Authentication → Email/Password** in Firebase Console so admin Sign up works.
+
+## Round 2 notes
+
+- Questions live in `src/data/questions.js` (Sinhala, 50 questions, images in `public/q/`).
+- Default answer key is in `src/lib/scoring.js`. The admin **Answer key** page can override any answer; overrides are stored at `config/answerKey` in Realtime Database and every submission is re-scored instantly.
+- Before the sitting: Admin → Settings → clear device locks and delete round 1 submissions.
+- Database rules must let signed-in admins read/write `config/answerKey`.

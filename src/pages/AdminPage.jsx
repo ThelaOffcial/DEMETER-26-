@@ -1,287 +1,33 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  setPersistence,
-  browserLocalPersistence,
-} from 'firebase/auth'
-import { ref, onValue, remove, off } from 'firebase/database'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { ref, onValue, remove, set, off } from 'firebase/database'
 import { auth, db } from '../lib/firebase'
-import {
-  scoreSubmission,
-  TOTAL_Q,
-  FAST_BONUS_THRESHOLD,
-  FAST_BONUS_MARKS,
-} from '../lib/scoring'
+import { QUESTION_BANK } from '../data/questions'
+import { ANSWER_KEY, TOTAL_Q, MAX_SCORE, mergeKey, scoreSubmission } from '../lib/scoring'
+import { generatePoster } from '../lib/poster'
+import { downloadText } from '../lib/format'
+import Login from './admin/Login'
+import Drawer from './admin/Drawer'
+import { Icon } from './admin/ui'
+import { Overview, Submissions, Leaderboard, Questions, Devices, Settings } from './admin/views'
+import '../styles/admin.css'
 
-function friendlyAuthError(ex) {
-  const code = (ex && ex.code) || ''
-  const map = {
-    'auth/invalid-email': 'Invalid email address.',
-    'auth/user-disabled': 'This account has been disabled.',
-    'auth/user-not-found':
-      'No account found for this email. Use Sign up to create one.',
-    'auth/wrong-password': 'Incorrect password. Try again.',
-    'auth/invalid-credential':
-      'Wrong email or password. If you are new, use Sign up.',
-    'auth/invalid-login-credentials':
-      'Wrong email or password. If you are new, use Sign up.',
-    'auth/too-many-requests':
-      'Too many attempts. Wait a few minutes and try again.',
-    'auth/network-request-failed': 'Network error. Check your connection.',
-    'auth/email-already-in-use':
-      'An account already exists for this email. Use Sign in.',
-    'auth/weak-password': 'Password must be at least 6 characters.',
-    'auth/operation-not-allowed':
-      'Email/password sign-in is disabled in Firebase Console.',
-    'auth/missing-password': 'Please enter a password.',
-    'auth/missing-email': 'Please enter an email.',
-  }
-  if (map[code]) return map[code]
-  const msg = ex?.message ? String(ex.message) : String(ex || 'Unknown error')
-  return (
-    msg
-      .replace(/^Firebase:\s*/i, '')
-      .replace(/\(auth\/[^)]+\)\.?/, '')
-      .trim() || 'Authentication failed.'
-  )
-}
+const NAV = [
+  ['overview', 'Overview', 'grid'],
+  ['submissions', 'Submissions', 'users'],
+  ['leaderboard', 'Leaderboard', 'trophy'],
+  ['questions', 'Answer key', 'key'],
+  ['devices', 'Devices', 'device'],
+  ['settings', 'Settings', 'gear'],
+]
 
-function formatDuration(start, end) {
-  if (!start) return '—'
-  const ms = (end || Date.now()) - start
-  const m = Math.floor(ms / 60000)
-  const s = Math.floor((ms % 60000) / 1000)
-  return `${m}m ${s}s`
-}
-
-function LoginScreen() {
-  const [mode, setMode] = useState('signin')
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
-  const [pass2, setPass2] = useState('')
-  const [err, setErr] = useState('')
-  const [ok, setOk] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const switchMode = (m) => {
-    setMode(m)
-    setErr('')
-    setOk('')
-  }
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setErr('')
-    setOk('')
-    const em = email.trim()
-    if (!em || !pass) {
-      setErr('Email and password are required.')
-      return
-    }
-    if (mode === 'signup') {
-      if (pass.length < 6) {
-        setErr('Password must be at least 6 characters.')
-        return
-      }
-      if (pass !== pass2) {
-        setErr('Passwords do not match.')
-        return
-      }
-    }
-    setLoading(true)
-    try {
-      await setPersistence(auth, browserLocalPersistence)
-      if (mode === 'signup') {
-        await createUserWithEmailAndPassword(auth, em, pass)
-        setOk('Account created. You are signed in.')
-      } else {
-        await signInWithEmailAndPassword(auth, em, pass)
-      }
-    } catch (ex) {
-      setErr(friendlyAuthError(ex))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="admin-login">
-      <div className="login-card">
-        <h1>DEMETER 26&apos;</h1>
-        <p className="sub">
-          {mode === 'signup'
-            ? 'Create an admin account'
-            : 'Sign in to manage results & retakes'}
-        </p>
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={'auth-tab' + (mode === 'signin' ? ' active' : '')}
-            onClick={() => switchMode('signin')}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            className={'auth-tab' + (mode === 'signup' ? ' active' : '')}
-            onClick={() => switchMode('signup')}
-          >
-            Sign up
-          </button>
-        </div>
-        <form onSubmit={submit}>
-          <div className="field">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@school.edu"
-              autoComplete="username"
-              required
-            />
-          </div>
-          <div className="field">
-            <label>Password</label>
-            <input
-              type="password"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
-              placeholder="At least 6 characters"
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              required
-              minLength={6}
-            />
-          </div>
-          {mode === 'signup' && (
-            <div className="field">
-              <label>Confirm password</label>
-              <input
-                type="password"
-                value={pass2}
-                onChange={(e) => setPass2(e.target.value)}
-                placeholder="Repeat password"
-                autoComplete="new-password"
-                required
-                minLength={6}
-              />
-            </div>
-          )}
-          <button type="submit" disabled={loading}>
-            {loading
-              ? mode === 'signup'
-                ? 'Creating account…'
-                : 'Signing in…'
-              : mode === 'signup'
-                ? 'Create admin account'
-                : 'Sign in'}
-          </button>
-          {err && <div className="login-error">{err}</div>}
-          {ok && <div className="login-ok">{ok}</div>}
-        </form>
-        <p className="auth-hint">
-          {mode === 'signup'
-            ? 'Creates a Firebase email/password account. Enable Email/Password in Firebase Console → Authentication.'
-            : 'Session stays signed in on this browser until you sign out.'}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function DetailModal({ sub, subKey, onClose, onRetake, onDelete }) {
-  if (!sub) return null
-  const { score, rawScore, bonus, fastCount, details } = scoreSubmission(sub)
-  const violations = sub.violations || []
-
-  return (
-    <div
-      className="modal-bg"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="modal">
-        <button className="modal-close" onClick={onClose}>
-          ✕
-        </button>
-        <h2>{sub.name}</h2>
-        <p style={{ color: 'var(--fern)', marginTop: -8 }}>
-          {sub.school} · {sub.grade || '—'}
-        </p>
-        <p style={{ fontSize: 13 }}>
-          Score: <strong>{score}/120</strong> · Raw: {rawScore}/115 · Fast:{' '}
-          {fastCount}/{TOTAL_Q} (need &gt;{FAST_BONUS_THRESHOLD} for +
-          {FAST_BONUS_MARKS}) · Bonus: {bonus ? '+' + bonus : '0'}
-        </p>
-        <p className="muted">
-          Device: {sub.deviceId || '—'} · Status: {sub.status} ·{' '}
-          {sub.autoSubmitted ? 'Auto-submitted' : 'Manual'} · Duration:{' '}
-          {formatDuration(sub.startTime, sub.endTime)}
-        </p>
-        <div className="action-row">
-          <button className="btn alert sm" onClick={() => onRetake(sub)}>
-            Allow device to retake
-          </button>
-          <button
-            className="btn outline sm"
-            onClick={() => {
-              if (
-                confirm(
-                  'Permanently delete this submission? This cannot be undone.'
-                )
-              )
-                onDelete(subKey)
-            }}
-          >
-            Delete submission
-          </button>
-        </div>
-        {violations.length > 0 && (
-          <>
-            <h3 style={{ fontSize: 15 }}>Violations ({violations.length})</h3>
-            {Object.values(violations).map((v, i) => (
-              <div key={i} className="viol-item">
-                {v.type} — {v.time ? new Date(v.time).toLocaleTimeString() : ''}
-              </div>
-            ))}
-          </>
-        )}
-        <h3 style={{ fontSize: 15, marginTop: 18 }}>Answers</h3>
-        {details.map((d) => (
-          <div key={d.id} className="qa-row">
-            <div className="qtxt">
-              {d.id}. {d.qtext}{' '}
-              <span style={{ color: 'var(--fern)', fontWeight: 400 }}>
-                ({d.marks} mark{d.marks > 1 ? 's' : ''}
-                {d.fast ? ' · fast' : ''})
-              </span>
-            </div>
-            <div
-              className={
-                'ans ' +
-                (d.given === undefined
-                  ? 'unanswered'
-                  : d.isCorrect
-                    ? 'correct'
-                    : 'wrong')
-              }
-            >
-              Given: {d.given === undefined ? 'No answer' : d.given}
-            </div>
-            {!d.isCorrect && (
-              <div className="ans" style={{ color: '#555' }}>
-                Correct: {d.correct}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+const TITLES = {
+  overview: ['Overview', 'Live snapshot of Round 2'],
+  submissions: ['Submissions', 'Every attempt, searchable and sortable'],
+  leaderboard: ['Leaderboard', 'Top students, winning schools and poster'],
+  questions: ['Answer key', 'Edit correct answers and review question accuracy'],
+  devices: ['Devices', 'One attempt per device — manage locks'],
+  settings: ['Settings', 'Scoring, export and round reset'],
 }
 
 export default function AdminPage() {
@@ -290,12 +36,28 @@ export default function AdminPage() {
   const [subs, setSubs] = useState({})
   const [devices, setDevices] = useState({})
   const [fingerprints, setFingerprints] = useState({})
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState('score-desc')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [tab, setTab] = useState('results')
-  const [selected, setSelected] = useState(null)
+  const [keyOverride, setKeyOverride] = useState({})
+  const [keyError, setKeyError] = useState('')
+  const [draft, setDraft] = useState(ANSWER_KEY)
+  const prevKeyRef = useRef(ANSWER_KEY)
+  const [view, setView] = useState('overview')
+  const [selectedKey, setSelectedKey] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [posterBusy, setPosterBusy] = useState(false)
+  const [bgFile, setBgFile] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [navOpen, setNavOpen] = useState(false)
+
+  const notify = useCallback((msg, type = 'ok') => {
+    setToast({ msg, type, id: Date.now() })
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3400)
+    return () => clearTimeout(t)
+  }, [toast])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -307,101 +69,80 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user) return
-    const r = ref(db, 'submissions')
-    const cb = (snap) => setSubs(snap.val() || {})
-    onValue(r, cb)
-    return () => off(r, 'value', cb)
+    const subscribe = (path, cb, errCb) => {
+      const r = ref(db, path)
+      onValue(r, cb, errCb)
+      return () => off(r, 'value', cb)
+    }
+    const offs = [
+      subscribe('submissions', (s) => setSubs(s.val() || {})),
+      subscribe('devices', (s) => setDevices(s.val() || {})),
+      subscribe('deviceFingerprints', (s) => setFingerprints(s.val() || {})),
+      subscribe(
+        'config/answerKey',
+        (s) => {
+          setKeyOverride(s.val() || {})
+          setKeyError('')
+        },
+        (e) => setKeyError('Could not read the saved answer key: ' + e.message)
+      ),
+    ]
+    return () => offs.forEach((f) => f())
   }, [user])
 
+  const keyMap = useMemo(() => mergeKey(keyOverride), [keyOverride])
+
   useEffect(() => {
-    if (!user) return
-    const dRef = ref(db, 'devices')
-    const fRef = ref(db, 'deviceFingerprints')
-    const dCb = (snap) => setDevices(snap.val() || {})
-    const fCb = (snap) => setFingerprints(snap.val() || {})
-    onValue(dRef, dCb)
-    onValue(fRef, fCb)
-    return () => {
-      off(dRef, 'value', dCb)
-      off(fRef, 'value', fCb)
-    }
-  }, [user])
+    const prev = prevKeyRef.current
+    setDraft((d) => (QUESTION_BANK.some((q) => d[q.id] !== prev[q.id]) ? d : keyMap))
+    prevKeyRef.current = keyMap
+  }, [keyMap])
+
+  const dirtyCount = useMemo(
+    () => QUESTION_BANK.filter((q) => draft[q.id] !== keyMap[q.id]).length,
+    [draft, keyMap]
+  )
 
   const scored = useMemo(
     () =>
-      Object.entries(subs).map(([key, sub]) => {
-        const sc = scoreSubmission(sub)
-        return { key, sub, ...sc }
-      }),
-    [subs]
+      Object.entries(subs).map(([key, sub]) => ({
+        key,
+        sub,
+        ...scoreSubmission(sub, keyMap),
+      })),
+    [subs, keyMap]
   )
 
   const stats = useMemo(() => {
     let submitted = 0
     let inProgress = 0
     let auto = 0
-    let scoreSum = 0
+    let sum = 0
+    let top = 0
+    let topName = ''
     scored.forEach(({ sub, score }) => {
       if (sub.status === 'submitted') {
         submitted++
-        scoreSum += score
+        sum += score
         if (sub.autoSubmitted) auto++
+        if (score > top) {
+          top = score
+          topName = sub.name
+        }
       } else if (sub.status === 'in-progress') inProgress++
     })
     return {
-      total: submitted,
+      total: scored.length,
+      submitted,
       inProgress,
-      avg: submitted ? (scoreSum / submitted).toFixed(1) : '0',
       auto,
+      top,
+      topName,
+      avg: submitted ? (sum / submitted).toFixed(1) : '0',
       devices: Object.keys(devices).length,
     }
   }, [scored, devices])
 
-  const filtered = useMemo(() => {
-    let list = [...scored]
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        ({ sub }) =>
-          (sub.name || '').toLowerCase().includes(q) ||
-          (sub.school || '').toLowerCase().includes(q) ||
-          (sub.grade || '').toLowerCase().includes(q)
-      )
-    }
-    if (filterStatus === 'submitted')
-      list = list.filter(({ sub }) => sub.status === 'submitted')
-    if (filterStatus === 'in-progress')
-      list = list.filter(({ sub }) => sub.status === 'in-progress')
-    if (filterStatus === 'auto')
-      list = list.filter(({ sub }) => sub.autoSubmitted)
-
-    list.sort((a, b) => {
-      if (sort === 'score-desc') return b.score - a.score
-      if (sort === 'score-asc') return a.score - b.score
-      if (sort === 'time-desc')
-        return (
-          (b.sub.endTime || b.sub.startTime || 0) -
-          (a.sub.endTime || a.sub.startTime || 0)
-        )
-      if (sort === 'violations-desc')
-        return (b.sub.violationCount || 0) - (a.sub.violationCount || 0)
-      if (sort === 'name')
-        return (a.sub.name || '').localeCompare(b.sub.name || '')
-      return 0
-    })
-    return list
-  }, [scored, search, sort, filterStatus])
-
-  const leaderboard = useMemo(
-    () =>
-      scored
-        .filter(({ sub }) => sub.status === 'submitted')
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 15),
-    [scored]
-  )
-
-  // Top schools by best student score (winning school ranking)
   const schoolRankings = useMemo(() => {
     const map = {}
     scored
@@ -409,102 +150,123 @@ export default function AdminPage() {
       .forEach(({ sub, score }) => {
         const school = (sub.school || 'Unknown').trim()
         if (!map[school] || score > map[school].score) {
-          map[school] = {
-            school,
-            score,
-            name: sub.name || '—',
-            grade: sub.grade || '',
-          }
+          map[school] = { school, score, name: sub.name || '—', grade: sub.grade || '' }
         }
       })
     return Object.values(map)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+      .slice(0, 10)
   }, [scored])
 
-  const topStudents = useMemo(
+  const qStats = useMemo(
     () =>
-      scored
-        .filter(({ sub }) => sub.status === 'submitted')
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10),
-    [scored]
+      QUESTION_BANK.map((q) => {
+        const counts = {}
+        let attempts = 0
+        let correct = 0
+        scored.forEach(({ sub }) => {
+          const a = sub.answers && sub.answers[q.id]
+          const v = a && typeof a === 'object' ? a.value : a
+          if (v === undefined) return
+          attempts++
+          counts[v] = (counts[v] || 0) + 1
+          if (v === draft[q.id]) correct++
+        })
+        return { ...q, counts, attempts, accuracy: attempts ? correct / attempts : 0 }
+      }),
+    [scored, draft]
   )
 
-  const allowRetake = useCallback(async (sub) => {
-    if (
-      !confirm(
-        'Allow this device to take the quiz again?\n\nRemoves server-side device lock. Previous submission stays. Student refreshes the quiz page — local storage clears automatically.'
-      )
-    )
-      return
-    setBusy(true)
-    try {
-      if (sub.deviceId) await remove(ref(db, 'devices/' + sub.deviceId))
-      if (sub.fingerprint)
-        await remove(ref(db, 'deviceFingerprints/' + sub.fingerprint))
-      alert('Device unlocked. Student can refresh and retake.')
-    } catch (e) {
-      alert('Failed: ' + e.message)
-    } finally {
-      setBusy(false)
-    }
-  }, [])
+  const subsByDevice = useMemo(() => {
+    const m = {}
+    Object.values(subs).forEach((s) => {
+      if (s.deviceId) m[s.deviceId] = s
+    })
+    return m
+  }, [subs])
 
-  const deleteSubmission = useCallback(async (key) => {
-    setBusy(true)
-    try {
-      await remove(ref(db, 'submissions/' + key))
-      setSelected(null)
-    } catch (e) {
-      alert('Delete failed: ' + e.message)
-    } finally {
-      setBusy(false)
-    }
-  }, [])
+  const selected = useMemo(() => scored.find((s) => s.key === selectedKey) || null, [scored, selectedKey])
 
-  const unlockDevice = useCallback(async (deviceId) => {
-    if (!confirm('Unlock device ' + deviceId + '?')) return
-    setBusy(true)
-    try {
-      await remove(ref(db, 'devices/' + deviceId))
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }, [])
+  const run = useCallback(
+    async (fn, okMsg) => {
+      setBusy(true)
+      try {
+        await fn()
+        if (okMsg) notify(okMsg)
+      } catch (e) {
+        notify(e.message || 'Something went wrong', 'err')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [notify]
+  )
 
-  const unlockFingerprint = useCallback(async (fp) => {
-    if (!confirm('Unlock fingerprint?')) return
-    setBusy(true)
-    try {
-      await remove(ref(db, 'deviceFingerprints/' + fp))
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }, [])
+  const allowRetake = useCallback(
+    (sub) => {
+      if (!confirm('Allow this device to take the quiz again? The previous submission stays.')) return
+      run(async () => {
+        if (sub.deviceId) await remove(ref(db, 'devices/' + sub.deviceId))
+        if (sub.fingerprint) await remove(ref(db, 'deviceFingerprints/' + sub.fingerprint))
+      }, 'Device unlocked — student can refresh and retake.')
+    },
+    [run]
+  )
 
-  const clearAllDevices = useCallback(async () => {
-    if (
-      !confirm(
-        'Remove ALL device locks? Every student will be able to retake after refresh.'
-      )
-    )
-      return
-    setBusy(true)
-    try {
+  const deleteSubmission = useCallback(
+    (key, sub) => {
+      if (!confirm(`Permanently delete ${sub.name}'s submission?`)) return
+      run(async () => {
+        await remove(ref(db, 'submissions/' + key))
+        setSelectedKey(null)
+      }, 'Submission deleted.')
+    },
+    [run]
+  )
+
+  const unlockDevice = useCallback(
+    (id) => {
+      if (!confirm('Unlock this device?')) return
+      run(() => remove(ref(db, 'devices/' + id)), 'Device unlocked.')
+    },
+    [run]
+  )
+
+  const unlockFp = useCallback(
+    (fp) => {
+      if (!confirm('Unlock this fingerprint?')) return
+      run(() => remove(ref(db, 'deviceFingerprints/' + fp)), 'Fingerprint unlocked.')
+    },
+    [run]
+  )
+
+  const clearLocks = useCallback(() => {
+    if (!confirm('Remove ALL device locks? Everyone can retake after a refresh.')) return
+    run(async () => {
       await remove(ref(db, 'devices'))
       await remove(ref(db, 'deviceFingerprints'))
-      alert('All device locks cleared.')
+    }, 'All device locks cleared.')
+  }, [run])
+
+  const deleteAll = useCallback(() => {
+    run(() => remove(ref(db, 'submissions')), 'All submissions deleted.')
+  }, [run])
+
+  const saveKey = useCallback(async () => {
+    setSaving(true)
+    try {
+      const overrides = {}
+      QUESTION_BANK.forEach((q) => {
+        if (draft[q.id] !== ANSWER_KEY[q.id]) overrides[q.id] = draft[q.id]
+      })
+      await set(ref(db, 'config/answerKey'), Object.keys(overrides).length ? overrides : null)
+      notify('Answer key saved — all scores updated.')
     } catch (e) {
-      alert(e.message)
+      notify('Save failed: ' + e.message, 'err')
     } finally {
-      setBusy(false)
+      setSaving(false)
     }
-  }, [])
+  }, [draft, notify])
 
   const exportCsv = useCallback(() => {
     const rows = [
@@ -512,10 +274,11 @@ export default function AdminPage() {
         'Name',
         'School',
         'Grade',
-        'Score /120',
-        'Raw /115',
+        `Score /${MAX_SCORE}`,
+        'Raw',
         'Bonus',
         'Fast Answers',
+        'Answered',
         'Violations',
         'Status',
         'Auto-Submitted',
@@ -524,624 +287,176 @@ export default function AdminPage() {
         'Device ID',
       ],
     ]
-    scored.forEach(({ sub, score, rawScore, bonus, fastCount }) => {
-      rows.push([
-        sub.name,
-        sub.school,
-        sub.grade,
-        score,
-        rawScore,
-        bonus,
-        fastCount + '/' + TOTAL_Q,
-        sub.violationCount || 0,
-        sub.status,
-        sub.autoSubmitted ? 'Yes' : 'No',
-        sub.startTime ? new Date(sub.startTime).toISOString() : '',
-        sub.endTime ? new Date(sub.endTime).toISOString() : '',
-        sub.deviceId || '',
-      ])
-    })
-    const csv = rows
-      .map((r) =>
-        r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
-      )
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'demeter26_results.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    ;[...scored]
+      .sort((a, b) => b.score - a.score)
+      .forEach(({ sub, score, rawScore, bonus, fastCount, answered }) => {
+        rows.push([
+          sub.name,
+          sub.school,
+          sub.grade,
+          score,
+          rawScore,
+          bonus,
+          fastCount,
+          answered + '/' + TOTAL_Q,
+          sub.violationCount || 0,
+          sub.status,
+          sub.autoSubmitted ? 'Yes' : 'No',
+          sub.startTime ? new Date(sub.startTime).toISOString() : '',
+          sub.endTime ? new Date(sub.endTime).toISOString() : '',
+          sub.deviceId || '',
+        ])
+      })
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    downloadText('demeter26_round2_results.csv', '\ufeff' + csv)
   }, [scored])
 
-
-  const [posterBgFile, setPosterBgFile] = useState(null) // File from user upload
-
-  const exportWinnersPoster = useCallback(async () => {
-    if (schoolRankings.length === 0) {
-      alert('No submitted results yet to generate a poster.')
-      return
-    }
-
-    const W = 1080
-    const H = 1350
-    const canvas = document.createElement('canvas')
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')
-
-    const loadImg = (src) =>
-      new Promise((resolve, reject) => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = () => resolve(img)
-        img.onerror = reject
-        img.src = src
-      })
-
-    // Background image: user upload → /poster-bg.png → gradient fallback
-    let bgImg = null
+  const makePoster = useCallback(async () => {
+    setPosterBusy(true)
     try {
-      if (posterBgFile) {
-        bgImg = await loadImg(URL.createObjectURL(posterBgFile))
-      } else {
-        bgImg = await loadImg('/poster-bg.png')
-      }
+      await generatePoster(schoolRankings.slice(0, 5), bgFile)
+      notify('Poster downloaded.')
     } catch (e) {
-      bgImg = null
+      notify(e.message, 'err')
+    } finally {
+      setPosterBusy(false)
     }
+  }, [schoolRankings, bgFile, notify])
 
-    if (bgImg) {
-      // Cover-fit draw
-      const scale = Math.max(W / bgImg.width, H / bgImg.height)
-      const dw = bgImg.width * scale
-      const dh = bgImg.height * scale
-      const dx = (W - dw) / 2
-      const dy = (H - dh) / 2
-      ctx.drawImage(bgImg, dx, dy, dw, dh)
-    } else {
-      const bg = ctx.createLinearGradient(0, 0, W, H)
-      bg.addColorStop(0, '#0A1F18')
-      bg.addColorStop(0.5, '#173D2E')
-      bg.addColorStop(1, '#0A1628')
-      ctx.fillStyle = bg
-      ctx.fillRect(0, 0, W, H)
-    }
-
-    // Dark vignette so text stays readable
-    const vig = ctx.createRadialGradient(W / 2, H * 0.55, 120, W / 2, H * 0.5, H * 0.75)
-    vig.addColorStop(0, 'rgba(0,0,0,0.15)')
-    vig.addColorStop(1, 'rgba(0,0,0,0.55)')
-    ctx.fillStyle = vig
-    ctx.fillRect(0, 0, W, H)
-
-    // ---- Frosted / blurred glass panel for rankings ----
-    const panelX = 56
-    const panelY = 280
-    const panelW = W - 112
-    const panelH = 820
-    const radius = 28
-
-    // Blur the background region under the panel
-    try {
-      const tmp = document.createElement('canvas')
-      tmp.width = panelW
-      tmp.height = panelH
-      const tctx = tmp.getContext('2d')
-      tctx.drawImage(canvas, panelX, panelY, panelW, panelH, 0, 0, panelW, panelH)
-      tctx.filter = 'blur(18px)'
-      // Re-draw self with blur (browser applies filter on drawImage)
-      const tmp2 = document.createElement('canvas')
-      tmp2.width = panelW
-      tmp2.height = panelH
-      const t2 = tmp2.getContext('2d')
-      t2.filter = 'blur(18px)'
-      t2.drawImage(tmp, 0, 0)
-      ctx.save()
-      roundRectPath(ctx, panelX, panelY, panelW, panelH, radius)
-      ctx.clip()
-      ctx.drawImage(tmp2, panelX, panelY)
-      ctx.restore()
-    } catch (e) {
-      // ignore blur failures
-    }
-
-    // Semi-transparent glass fill + border
-    ctx.save()
-    roundRectPath(ctx, panelX, panelY, panelW, panelH, radius)
-    ctx.fillStyle = 'rgba(8, 20, 28, 0.55)'
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-    ctx.restore()
-
-    // Inner soft highlight line
-    ctx.save()
-    roundRectPath(ctx, panelX + 1, panelY + 1, panelW - 2, panelH - 2, radius - 1)
-    ctx.strokeStyle = 'rgba(217,164,65,0.25)'
-    ctx.lineWidth = 1
-    ctx.stroke()
-    ctx.restore()
-
-    // ---- Header text (above panel, on photo) ----
-    ctx.textAlign = 'center'
-    ctx.fillStyle = 'rgba(217,164,65,0.95)'
-    ctx.font = '600 20px "Work Sans", system-ui, sans-serif'
-    ctx.fillText('ALL ISLAND INTER SCHOOL ECO QUIZ', W / 2, 90)
-
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = '700 64px "Fraunces", Georgia, serif'
-    ctx.fillText("DEMETER 26'", W / 2, 165)
-
-    ctx.fillStyle = 'rgba(241,243,234,0.9)'
-    ctx.font = '600 26px "Work Sans", system-ui, sans-serif'
-    ctx.fillText('TOP 5 WINNING SCHOOLS', W / 2, 215)
-
-    // Gold line under subtitle
-    ctx.strokeStyle = '#D9A441'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(W / 2 - 70, 235)
-    ctx.lineTo(W / 2 + 70, 235)
-    ctx.stroke()
-
-    // ---- Ranking rows inside blurred panel ----
-    const medals = ['#D9A441', '#C8CDD2', '#C47B3A', '#8FA89A', '#8FA89A']
-    const rowStart = panelY + 36
-    const rowH = 148
-
-    schoolRankings.forEach((row, i) => {
-      const y = rowStart + i * rowH
-
-      // Row strip
-      ctx.fillStyle =
-        i === 0 ? 'rgba(217,164,65,0.18)' : 'rgba(255,255,255,0.06)'
-      roundRectPath(ctx, panelX + 24, y, panelW - 48, 128, 16)
-      ctx.fill()
-      ctx.strokeStyle =
-        i === 0 ? 'rgba(217,164,65,0.5)' : 'rgba(255,255,255,0.1)'
-      ctx.lineWidth = 1
-      roundRectPath(ctx, panelX + 24, y, panelW - 48, 128, 16)
-      ctx.stroke()
-
-      // Rank badge
-      ctx.beginPath()
-      ctx.arc(panelX + 88, y + 64, 30, 0, Math.PI * 2)
-      ctx.fillStyle = medals[i] || '#8FA89A'
-      ctx.fill()
-      ctx.fillStyle = i < 3 ? '#0A1F18' : '#F1F3EA'
-      ctx.font = '700 26px "Fraunces", Georgia, serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(String(i + 1), panelX + 88, y + 73)
-
-      // School
-      ctx.textAlign = 'left'
-      ctx.fillStyle = '#FFFFFF'
-      ctx.font = '600 28px "Work Sans", system-ui, sans-serif'
-      ctx.fillText(truncateText(ctx, row.school, panelW - 320), panelX + 140, y + 50)
-
-      // Student
-      ctx.fillStyle = 'rgba(241,243,234,0.7)'
-      ctx.font = '500 20px "Work Sans", system-ui, sans-serif'
-      const studentLine = row.grade
-        ? `${row.name}  ·  ${row.grade}`
-        : row.name
-      ctx.fillText(
-        truncateText(ctx, studentLine, panelW - 320),
-        panelX + 140,
-        y + 88
-      )
-
-      // Score
-      ctx.textAlign = 'right'
-      ctx.fillStyle = '#D9A441'
-      ctx.font = '700 36px "Fraunces", Georgia, serif'
-      ctx.fillText(String(row.score), panelX + panelW - 48, y + 62)
-      ctx.fillStyle = 'rgba(241,243,234,0.55)'
-      ctx.font = '500 15px "Work Sans", system-ui, sans-serif'
-      ctx.fillText('/ 120', panelX + panelW - 48, y + 90)
-    })
-
-    // Footer bar
-    ctx.fillStyle = 'rgba(0,0,0,0.65)'
-    ctx.fillRect(0, H - 70, W, 70)
-    ctx.textAlign = 'center'
-    ctx.fillStyle = 'rgba(241,243,234,0.75)'
-    ctx.font = '500 18px "Work Sans", system-ui, sans-serif'
-    ctx.fillText('First Round Results  ·  Powered by SSCICTS', W / 2, H - 28)
-
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        alert('Could not create image.')
-        return
-      }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'demeter26-top5-schools.png'
-      a.click()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  }, [schoolRankings, posterBgFile])
-
-  function roundRectPath(ctx, x, y, w, h, r) {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.arcTo(x + w, y, x + w, y + h, r)
-    ctx.arcTo(x + w, y + h, x, y + h, r)
-    ctx.arcTo(x, y + h, x, y, r)
-    ctx.arcTo(x, y, x + w, y, r)
-    ctx.closePath()
+  const go = (v) => {
+    setView(v)
+    setNavOpen(false)
+    window.scrollTo({ top: 0 })
   }
 
-  function truncateText(ctx, text, maxW) {
-    if (ctx.measureText(text).width <= maxW) return text
-    let s = String(text || '')
-    while (s.length > 0 && ctx.measureText(s + '…').width > maxW) {
-      s = s.slice(0, -1)
-    }
-    return s + '…'
-  }
+  if (!authReady) return <div className="adm adm-boot">Checking session…</div>
+  if (!user) return <Login />
 
-  if (!authReady) {
-    return <div className="auth-loading">Checking session…</div>
-  }
-  if (!user) return <LoginScreen />
+  const [title, subtitle] = TITLES[view]
 
   return (
-    <div className="dash">
-      <div className="header">
-        <div>
-          <div className="eyebrow">Live results · React admin</div>
-          <h1>DEMETER 26&apos; Dashboard</h1>
-          <p className="sub">
-            Real-time submissions · Retake controls · Device management
-          </p>
+    <div className="adm">
+      <aside className={'a-side' + (navOpen ? ' open' : '')}>
+        <div className="side-brand">
+          <span className="logo">D</span>
+          <div>
+            <b>DEMETER 26&apos;</b>
+            <small>Round 2 · Admin</small>
+          </div>
         </div>
-        <div className="header-actions">
-          <span className="muted">{user.email}</span>
-          <button className="btn outline" onClick={() => signOut(auth)}>
-            Sign out
+        <nav>
+          {NAV.map(([k, label, icon]) => (
+            <button key={k} className={view === k ? 'on' : ''} onClick={() => go(k)}>
+              <Icon name={icon} />
+              <span>{label}</span>
+              {k === 'submissions' && stats.inProgress > 0 && <em>{stats.inProgress} live</em>}
+              {k === 'questions' && dirtyCount > 0 && <em className="warn">{dirtyCount}</em>}
+            </button>
+          ))}
+        </nav>
+        <div className="side-foot">
+          <div className="live">
+            <i /> Live sync
+          </div>
+          <div className="who">{user.email}</div>
+          <button className="signout" onClick={() => signOut(auth)}>
+            <Icon name="logout" size={16} /> Sign out
           </button>
         </div>
-      </div>
+      </aside>
+      {navOpen && <div className="side-scrim" onClick={() => setNavOpen(false)} />}
 
-      <div className="stats">
-        <div className="stat">
-          <div className="num">{stats.total}</div>
-          <div className="label">Submitted</div>
-        </div>
-        <div className="stat">
-          <div className="num">{stats.inProgress}</div>
-          <div className="label">In progress</div>
-        </div>
-        <div className="stat">
-          <div className="num">{stats.avg}</div>
-          <div className="label">Avg score</div>
-        </div>
-        <div className="stat">
-          <div className="num">{stats.auto}</div>
-          <div className="label">Auto-submitted</div>
-        </div>
-        <div className="stat">
-          <div className="num">{stats.devices}</div>
-          <div className="label">Locked devices</div>
-        </div>
-      </div>
-
-      <div className="tabs">
-        {['results', 'leaderboard', 'winners', 'devices', 'tools'].map((id) => (
-          <button
-            key={id}
-            className={'tab' + (tab === id ? ' active' : '')}
-            onClick={() => setTab(id)}
-          >
-            {id === 'results'
-              ? 'Results'
-              : id === 'leaderboard'
-                ? 'Top Students'
-                : id === 'winners'
-                  ? 'Winning Schools'
-                  : id === 'devices'
-                    ? 'Devices & Retakes'
-                    : 'Tools'}
+      <main className="a-main">
+        <header className="a-top">
+          <button className="a-icon-btn menu" onClick={() => setNavOpen(true)} aria-label="Menu">
+            <Icon name="menu" />
           </button>
-        ))}
-      </div>
-
-      {tab === 'results' && (
-        <>
-          <div className="toolbar">
-            <input
-              type="text"
-              placeholder="Search name, school or grade…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="score-desc">Score (high→low)</option>
-              <option value="score-asc">Score (low→high)</option>
-              <option value="time-desc">Newest first</option>
-              <option value="violations-desc">Most violations</option>
-              <option value="name">Name A–Z</option>
-            </select>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">All statuses</option>
-              <option value="submitted">Submitted only</option>
-              <option value="in-progress">In progress</option>
-              <option value="auto">Auto-submitted</option>
-            </select>
-            <button className="btn" onClick={exportCsv}>
-              Export CSV
+          <div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
+          <div className="top-right">
+            <span className="pill">
+              <i /> {stats.inProgress} in progress
+            </span>
+            <button className="a-btn" onClick={exportCsv}>
+              <Icon name="download" size={16} /> Export
             </button>
           </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>School</th>
-                  <th>Grade</th>
-                  <th>Score /120</th>
-                  <th>Fast</th>
-                  <th>Violations</th>
-                  <th>Status</th>
-                  <th>Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr className="empty-row">
-                    <td colSpan={8}>
-                      {Object.keys(subs).length
-                        ? 'No results match your filters.'
-                        : 'No submissions yet.'}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map(({ key, sub, score, fastCount }) => (
-                    <tr key={key} onClick={() => setSelected({ key, sub })}>
-                      <td>{sub.name}</td>
-                      <td>{sub.school}</td>
-                      <td>{sub.grade || '—'}</td>
-                      <td>
-                        <strong>{score}</strong>
-                      </td>
-                      <td>
-                        {fastCount}/{TOTAL_Q}
-                      </td>
-                      <td>{sub.violationCount || 0}</td>
-                      <td>
-                        {sub.status === 'submitted' ? (
-                          sub.autoSubmitted ? (
-                            <span className="badge warn">Auto</span>
-                          ) : (
-                            <span className="badge ok">Submitted</span>
-                          )
-                        ) : (
-                          <span className="badge mid">In progress</span>
-                        )}
-                      </td>
-                      <td>{formatDuration(sub.startTime, sub.endTime)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+        </header>
 
-      {tab === 'leaderboard' && (
-        <div className="panel">
-          <h3>Top scores</h3>
-          <p>Live ranking of submitted quizzes (max 120).</p>
-          <div className="leaderboard">
-            {leaderboard.length === 0 && (
-              <p className="muted">No submitted scores yet.</p>
-            )}
-            {leaderboard.map(({ sub, score }, i) => (
-              <div key={i} className="lb-row">
-                <div className="lb-rank">#{i + 1}</div>
-                <div className="lb-name">
-                  {sub.name}{' '}
-                  <span className="muted">· {sub.school}</span>
-                </div>
-                <div className="lb-score">{score}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === 'winners' && (
-        <>
-          <div className="panel">
-            <h3>Top 5 winning schools</h3>
-            <p>
-              Ranked by each school&apos;s highest student score. Export uses your
-              night-landscape background with a blurred glass panel for the list.
-            </p>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', marginBottom: 6 }}>
-                Poster background image
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setPosterBgFile(e.target.files?.[0] || null)}
-              />
-              <p className="muted" style={{ marginTop: 8 }}>
-                Optional. Or place <code>poster-bg.png</code> in the site{' '}
-                <code>public/</code> folder. Without an image, a dark gradient is used.
-              </p>
-            </div>
-            <button
-              className="btn"
-              onClick={exportWinnersPoster}
-              disabled={schoolRankings.length === 0}
-            >
-              Export Top 5 poster (PNG)
-            </button>
-          </div>
-          <div className="panel">
-            <div className="leaderboard">
-              {schoolRankings.length === 0 && (
-                <p className="muted">No submitted results yet.</p>
-              )}
-              {schoolRankings.map((row, i) => (
-                <div key={row.school} className="lb-row">
-                  <div className="lb-rank">#{i + 1}</div>
-                  <div className="lb-name">
-                    {row.school}
-                    <div className="muted">
-                      Top student: {row.name}
-                      {row.grade ? ` · ${row.grade}` : ''}
-                    </div>
-                  </div>
-                  <div className="lb-score">{row.score}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="panel">
-            <h3>Top students (for reference)</h3>
-            <div className="leaderboard">
-              {topStudents.map(({ sub, score }, i) => (
-                <div key={i} className="lb-row">
-                  <div className="lb-rank">#{i + 1}</div>
-                  <div className="lb-name">
-                    {sub.name}{' '}
-                    <span className="muted">· {sub.school}</span>
-                  </div>
-                  <div className="lb-score">{score}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {tab === 'devices' && (
-        <>
-          <div className="panel">
-            <h3>Device locks</h3>
-            <p>
-              Unlock a device so the student can refresh and retake. Previous
-              submissions stay on record unless deleted.
-            </p>
-            <button
-              className="btn alert sm"
-              onClick={clearAllDevices}
-              disabled={busy}
-            >
-              Clear ALL device locks
-            </button>
-          </div>
-          <div className="panel">
-            <h3>Active device IDs ({Object.keys(devices).length})</h3>
-            <ul className="device-list">
-              {Object.keys(devices).length === 0 && (
-                <li className="muted">None locked</li>
-              )}
-              {Object.entries(devices).map(([id, data]) => (
-                <li key={id}>
-                  <div>
-                    <code style={{ fontSize: 12 }}>{id}</code>
-                    <div className="muted">
-                      {data.submissionKey
-                        ? 'Submission: ' + data.submissionKey
-                        : 'Reserved'}{' '}
-                      ·{' '}
-                      {data.reservedAt
-                        ? new Date(data.reservedAt).toLocaleString()
-                        : ''}
-                    </div>
-                  </div>
-                  <button
-                    className="btn outline sm"
-                    onClick={() => unlockDevice(id)}
-                    disabled={busy}
-                  >
-                    Unlock
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="panel">
-            <h3>Fingerprints ({Object.keys(fingerprints).length})</h3>
-            <ul className="device-list">
-              {Object.keys(fingerprints).length === 0 && (
-                <li className="muted">None locked</li>
-              )}
-              {Object.entries(fingerprints).map(([fp, data]) => (
-                <li key={fp}>
-                  <div>
-                    <code style={{ fontSize: 11 }}>{fp.slice(0, 24)}…</code>
-                    <div className="muted">
-                      {data.reservedAt
-                        ? new Date(data.reservedAt).toLocaleString()
-                        : ''}
-                    </div>
-                  </div>
-                  <button
-                    className="btn outline sm"
-                    onClick={() => unlockFingerprint(fp)}
-                    disabled={busy}
-                  >
-                    Unlock
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
-
-      {tab === 'tools' && (
-        <>
-          <div className="panel">
-            <h3>Export</h3>
-            <p>Download all submissions as CSV.</p>
-            <button className="btn" onClick={exportCsv}>
-              Export CSV
-            </button>
-          </div>
-          <div className="panel">
-            <h3>Retake how-to</h3>
-            <p>
-              1. Open a result → Allow device to retake
-              <br />
-              2. Or Devices tab → Unlock
-              <br />
-              3. Student refreshes the quiz (/) — local flag clears when server
-              lock is gone
-            </p>
-          </div>
-          <div className="panel">
-            <h3>Scoring</h3>
-            <p>
-              Q1–15: 1 mark · Q16–35: 2 · Q36–50: 4 (=115). +5 if more than{' '}
-              {FAST_BONUS_THRESHOLD} fast answers. Max 120.
-            </p>
-          </div>
-        </>
-      )}
+        {view === 'overview' && (
+          <Overview
+            stats={stats}
+            scored={scored}
+            schoolRankings={schoolRankings}
+            qStats={qStats}
+            onOpen={setSelectedKey}
+            setView={go}
+          />
+        )}
+        {view === 'submissions' && <Submissions scored={scored} onOpen={setSelectedKey} onExport={exportCsv} />}
+        {view === 'leaderboard' && (
+          <Leaderboard
+            scored={scored}
+            schoolRankings={schoolRankings}
+            onOpen={setSelectedKey}
+            onPoster={makePoster}
+            bgFile={bgFile}
+            setBgFile={setBgFile}
+            posterBusy={posterBusy}
+          />
+        )}
+        {view === 'questions' && (
+          <Questions
+            qStats={qStats}
+            keyMap={keyMap}
+            draft={draft}
+            setDraft={setDraft}
+            dirtyCount={dirtyCount}
+            onSave={saveKey}
+            onReset={() => setDraft(keyMap)}
+            saving={saving}
+            keyError={keyError}
+          />
+        )}
+        {view === 'devices' && (
+          <Devices
+            devices={devices}
+            fingerprints={fingerprints}
+            subsByDevice={subsByDevice}
+            onUnlockDevice={unlockDevice}
+            onUnlockFp={unlockFp}
+            onClearAll={clearLocks}
+            busy={busy}
+          />
+        )}
+        {view === 'settings' && (
+          <Settings
+            user={user}
+            onExport={exportCsv}
+            onClearAll={clearLocks}
+            onDeleteAll={deleteAll}
+            onSignOut={() => signOut(auth)}
+            busy={busy}
+            total={stats.total}
+          />
+        )}
+      </main>
 
       {selected && (
-        <DetailModal
-          sub={selected.sub}
-          subKey={selected.key}
-          onClose={() => setSelected(null)}
-          onRetake={(sub) => allowRetake(sub)}
-          onDelete={(key) => deleteSubmission(key)}
+        <Drawer
+          item={selected}
+          onClose={() => setSelectedKey(null)}
+          onRetake={allowRetake}
+          onDelete={deleteSubmission}
         />
+      )}
+
+      {toast && (
+        <div key={toast.id} className={'a-toast ' + toast.type}>
+          <Icon name={toast.type === 'err' ? 'alert' : 'check'} size={16} /> {toast.msg}
+        </div>
       )}
     </div>
   )

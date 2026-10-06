@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ref, get, set, update, push } from 'firebase/database'
 import { db } from '../lib/firebase'
 import { QUESTION_BANK } from '../data/questions'
-import { TRANSLATIONS_SI, UI_SI } from '../data/translations'
-import { UI_EN } from '../lib/uiStrings'
+import { UI_SI } from '../lib/uiStrings'
 import {
   getDeviceId,
   getFingerprint,
@@ -20,12 +19,12 @@ const FAST_ADVANCE_DELAY = 1200
 const deviceId = getDeviceId()
 const fingerprint = getFingerprint()
 
-function Brand({ lang }) {
+function Brand() {
   return (
     <div className="brand">
       <div className="eyebrow">All Island Inter School Eco Quiz</div>
       <h1>DEMETER 26&apos;</h1>
-      <p>{lang === 'si' ? UI_EN.brandSubSi : UI_EN.brandSub}</p>
+      <p>{UI_SI.brandSub}</p>
       <div className="powered-by">
         <span>Powered by SSCICTS</span>
       </div>
@@ -35,7 +34,7 @@ function Brand({ lang }) {
 
 export default function QuizPage() {
   const [screen, setScreen] = useState('loading')
-  const [lang, setLang] = useState('en')
+  const lang = 'si'
   const [name, setName] = useState('')
   const [school, setSchool] = useState('')
   const [grade, setGrade] = useState('')
@@ -62,13 +61,8 @@ export default function QuizPage() {
   const fsGraceTimerRef = useRef(null)
   const fsGraceLeftRef = useRef(0)
   const devtoolsWarnedRef = useRef(false)
-  const langRef = useRef('en')
 
-  const t = useCallback((key) => {
-    // Use lang state (not langRef) so UI updates immediately when switching language
-    if (lang === 'si' && UI_SI && UI_SI[key]) return UI_SI[key]
-    return UI_EN[key] || key
-  }, [lang])
+  const t = useCallback((key) => UI_SI[key] || key, [])
 
   useEffect(() => {
     answersRef.current = answers
@@ -79,9 +73,6 @@ export default function QuizPage() {
   useEffect(() => {
     currentRef.current = current
   }, [current])
-  useEffect(() => {
-    langRef.current = lang
-  }, [lang])
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -198,17 +189,10 @@ export default function QuizPage() {
     }, 1000)
   }, [logViolation, finalizeSubmit])
 
-  const buildQuestions = useCallback((quizLang) => {
+  const buildQuestions = useCallback(() => {
     const map = {}
     QUESTION_BANK.forEach((q) => {
-      const labels =
-        quizLang === 'si' && TRANSLATIONS_SI[q.id]
-          ? TRANSLATIONS_SI[q.id].options
-          : q.options
-      const pairs = q.options.map((val, i) => ({
-        value: val,
-        label: labels[i] || val,
-      }))
+      const pairs = q.options.map((val) => ({ value: val, label: val }))
       map[q.id] = shuffle(pairs)
     })
     setShuffledOptions(map)
@@ -408,7 +392,7 @@ export default function QuizPage() {
       await update(ref(db, 'devices/' + deviceId), {
         submissionKey: newRef.key,
       })
-      buildQuestions(lang)
+      buildQuestions()
       setCurrent(0)
       currentRef.current = 0
       setPhase('reading')
@@ -422,7 +406,7 @@ export default function QuizPage() {
       setScreen('quiz')
     } catch (e) {
       console.error(e)
-      setRegError('Could not start quiz. Check your connection and try again.')
+      setRegError('ආරම්භ කළ නොහැකි විය. අන්තර්ජාල සම්බන්ධතාව පරීක්ෂා කර නැවත උත්සාහ කරන්න.')
     } finally {
       setStarting(false)
     }
@@ -431,9 +415,9 @@ export default function QuizPage() {
   if (screen === 'loading') {
     return (
       <div className="student-shell">
-        <Brand lang={lang} />
+        <Brand />
         <div className="card" style={{ textAlign: 'center', color: 'var(--fern)' }}>
-          {UI_EN.loading}
+          {UI_SI.loading}
         </div>
       </div>
     )
@@ -442,7 +426,7 @@ export default function QuizPage() {
   if (screen === 'locked') {
     return (
       <div className="student-shell">
-        <Brand lang={lang} />
+        <Brand />
         <div className="locked-card">
           <h2>{t('lockTitle')}</h2>
           <p>{t('lockMsg')}</p>
@@ -458,7 +442,7 @@ export default function QuizPage() {
       : t('doneMsg')
     return (
       <div className="student-shell">
-        <Brand lang={lang} />
+        <Brand />
         <div className="card done-card">
           <h2>{title}</h2>
           <p>{msg}</p>
@@ -471,43 +455,27 @@ export default function QuizPage() {
     const rules = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => t('rule' + i))
     return (
       <div className="student-shell">
-        <Brand lang={lang} />
+        <Brand />
         <div className="card">
-          <div className="lang-switch">
-            <button
-              type="button"
-              className={'lang-btn' + (lang === 'en' ? ' active' : '')}
-              onClick={() => setLang('en')}
-            >
-              English
-            </button>
-            <button
-              type="button"
-              className={'lang-btn' + (lang === 'si' ? ' active' : '')}
-              onClick={() => setLang('si')}
-            >
-              සිංහල
-            </button>
-          </div>
           <label>{t('lblName')}</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. K. D. Perera"
+            placeholder="උදා: කේ. ඩී. පෙරේරා"
             autoComplete="off"
           />
           <label>{t('lblSchool')}</label>
           <input
             value={school}
             onChange={(e) => setSchool(e.target.value)}
-            placeholder="e.g. Visakha Vidyalaya, Colombo"
+            placeholder="උදා: විශාඛා විද්‍යාලය, කොළඹ"
             autoComplete="off"
           />
           <label>{t('lblGrade')}</label>
           <input
             value={grade}
             onChange={(e) => setGrade(e.target.value)}
-            placeholder="e.g. Grade 10 — 4521"
+            placeholder="උදා: 10 වසර — 4521"
             autoComplete="off"
           />
           <div className="rules">
@@ -530,8 +498,6 @@ export default function QuizPage() {
   }
 
   const q = QUESTION_BANK[current]
-  const translatedQ =
-    lang === 'si' && TRANSLATIONS_SI[q.id] ? TRANSLATIONS_SI[q.id].q : q.q
   const lockedIn = phase === 'answering' && !!answers[q.id]
   const options = shuffledOptions[q.id] || []
   const letters = ['A', 'B', 'C', 'D']
@@ -576,8 +542,8 @@ export default function QuizPage() {
           </div>
         </div>
         <div className="question-card">
-          <span className="q-num">Question {q.id}</span>
-          <p className="q-text">{translatedQ}</p>
+          <span className="q-num">{t('questionLabel')} {q.id}</span>
+          <p className="q-text">{q.q}</p>
           {q.img && <img className="q-image" src={q.img} alt="" />}
           <div className="options">
             {options.map((pair, i) => {

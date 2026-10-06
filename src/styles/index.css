@@ -16,7 +16,7 @@
   --shadow-lg: 0 20px 60px rgba(15, 42, 32, 0.18);
   --radius: 14px;
   --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Work Sans', Arial, sans-serif;
+  --font-body: 'Work Sans', 'Noto Sans Sinhala', Arial, sans-serif;
 }
 
 * {
