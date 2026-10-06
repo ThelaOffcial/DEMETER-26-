@@ -1,3 +1,6 @@
+import { QUESTION_BANK } from '../data/questions'
+import { QUESTION_BANK_EN } from '../data/questionsEn'
+
 export const ANSWER_KEY = {
   1: "ඔක්තෝබර් 5",
   2: "ශ්‍රී ලංකා අලියා",
@@ -88,4 +91,22 @@ export function scoreSubmission(sub, key = ANSWER_KEY) {
   }
   const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0
   return { score: rawScore + bonus, rawScore, bonus, fastCount, answered, details }
+}
+
+// English-medium submissions store English option text. Option order is identical
+// in both banks, so convert each answer to the Sinhala option text and every
+// existing scoring / answer-key / stats feature works for both mediums.
+export function normalizeSubmission(sub) {
+  if (!sub || sub.lang !== 'en' || !sub.answers) return sub
+  const answers = {}
+  Object.entries(sub.answers).forEach(([id, a]) => {
+    const isObj = a && typeof a === 'object'
+    const val = isObj ? a.value : a
+    const qEn = QUESTION_BANK_EN.find((q) => q.id === Number(id))
+    const qSi = QUESTION_BANK.find((q) => q.id === Number(id))
+    const idx = qEn ? qEn.options.indexOf(val) : -1
+    const si = idx >= 0 && qSi ? qSi.options[idx] : val
+    answers[id] = isObj ? { ...a, value: si } : si
+  })
+  return { ...sub, answers }
 }

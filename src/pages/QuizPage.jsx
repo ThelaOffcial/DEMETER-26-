@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ref, get, set, update, push } from 'firebase/database'
 import { db } from '../lib/firebase'
-import { QUESTION_BANK } from '../data/questions'
-import { UI_SI } from '../lib/uiStrings'
+import { QUESTION_BANK as QB_SI } from '../data/questions'
+import { QUESTION_BANK_EN as QB_EN } from '../data/questionsEn'
+import { UI_SI, UI_EN } from '../lib/uiStrings'
 import {
   getDeviceId,
   getFingerprint,
@@ -19,12 +20,12 @@ const FAST_ADVANCE_DELAY = 1200
 const deviceId = getDeviceId()
 const fingerprint = getFingerprint()
 
-function Brand() {
+function Brand({ UI }) {
   return (
     <div className="brand">
       <div className="eyebrow">All Island Inter School Eco Quiz</div>
       <h1>DEMETER 26&apos;</h1>
-      <p>{UI_SI.brandSub}</p>
+      <p>{UI.brandSub}</p>
       <div className="powered-by">
         <span>Powered by SSCICTS</span>
       </div>
@@ -32,9 +33,10 @@ function Brand() {
   )
 }
 
-export default function QuizPage() {
+export default function QuizPage({ lang = 'si' }) {
+  const UI = lang === 'en' ? UI_EN : UI_SI
+  const QUESTION_BANK = lang === 'en' ? QB_EN : QB_SI
   const [screen, setScreen] = useState('loading')
-  const lang = 'si'
   const [name, setName] = useState('')
   const [school, setSchool] = useState('')
   const [grade, setGrade] = useState('')
@@ -62,7 +64,7 @@ export default function QuizPage() {
   const fsGraceLeftRef = useRef(0)
   const devtoolsWarnedRef = useRef(false)
 
-  const t = useCallback((key) => UI_SI[key] || key, [])
+  const t = useCallback((key) => UI[key] || key, [UI])
 
   useEffect(() => {
     answersRef.current = answers
@@ -415,9 +417,9 @@ export default function QuizPage() {
   if (screen === 'loading') {
     return (
       <div className="student-shell">
-        <Brand />
+        <Brand UI={UI} />
         <div className="card" style={{ textAlign: 'center', color: 'var(--fern)' }}>
-          {UI_SI.loading}
+          {UI.loading || 'Loading…'}
         </div>
       </div>
     )
@@ -426,7 +428,7 @@ export default function QuizPage() {
   if (screen === 'locked') {
     return (
       <div className="student-shell">
-        <Brand />
+        <Brand UI={UI} />
         <div className="locked-card">
           <h2>{t('lockTitle')}</h2>
           <p>{t('lockMsg')}</p>
@@ -442,7 +444,7 @@ export default function QuizPage() {
       : t('doneMsg')
     return (
       <div className="student-shell">
-        <Brand />
+        <Brand UI={UI} />
         <div className="card done-card">
           <h2>{title}</h2>
           <p>{msg}</p>
@@ -455,7 +457,7 @@ export default function QuizPage() {
     const rules = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => t('rule' + i))
     return (
       <div className="student-shell">
-        <Brand />
+        <Brand UI={UI} />
         <div className="card">
           <label>{t('lblName')}</label>
           <input

@@ -40,3 +40,8 @@ Enable **Authentication → Email/Password** in Firebase Console so admin Sign u
 - Default answer key is in `src/lib/scoring.js`. The admin **Answer key** page can override any answer; overrides are stored at `config/answerKey` in Realtime Database and every submission is re-scored instantly.
 - Before the sitting: Admin → Settings → clear device locks and delete round 1 submissions.
 - Database rules must let signed-in admins read/write `config/answerKey`.
+
+## English round
+
+- English-medium quiz is served at `/en` (Sinhala stays at `/`). Questions: `src/data/questionsEn.js`.
+- Both mediums share the same device lock, the same Admin console and the same answer key. English answers are converted to the Sinhala option text (option order is identical) before scoring, so admin overrides apply to both.

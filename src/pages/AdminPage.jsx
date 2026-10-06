@@ -3,7 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { ref, onValue, remove, set, off } from 'firebase/database'
 import { auth, db } from '../lib/firebase'
 import { QUESTION_BANK } from '../data/questions'
-import { ANSWER_KEY, TOTAL_Q, MAX_SCORE, mergeKey, scoreSubmission } from '../lib/scoring'
+import { ANSWER_KEY, TOTAL_Q, MAX_SCORE, mergeKey, scoreSubmission, normalizeSubmission } from '../lib/scoring'
 import { generatePoster } from '../lib/poster'
 import { downloadText } from '../lib/format'
 import Login from './admin/Login'
@@ -108,7 +108,7 @@ export default function AdminPage() {
       Object.entries(subs).map(([key, sub]) => ({
         key,
         sub,
-        ...scoreSubmission(sub, keyMap),
+        ...scoreSubmission(normalizeSubmission(sub), keyMap),
       })),
     [subs, keyMap]
   )
@@ -164,7 +164,8 @@ export default function AdminPage() {
         const counts = {}
         let attempts = 0
         let correct = 0
-        scored.forEach(({ sub }) => {
+        scored.forEach(({ sub: rawSub }) => {
+          const sub = normalizeSubmission(rawSub)
           const a = sub.answers && sub.answers[q.id]
           const v = a && typeof a === 'object' ? a.value : a
           if (v === undefined) return

@@ -34,7 +34,8 @@ export const UI_EN = {
     'Only one student may take the quiz per device/browser. If you believe this is an error, please contact the quiz coordinators at your registration desk.',
   fsTitle: 'You exited full screen',
   fsMsg: 'Return to full screen now or your quiz will be auto-submitted.',
-  brandSub: 'Second Round — Sinhala Medium',
+  brandSub: 'Second Round — English Medium',
+  questionLabel: 'Question',
   brandSubSi: 'දෙවන වටය',
   loading: 'Loading…',
 }
