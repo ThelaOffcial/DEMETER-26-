@@ -276,9 +276,10 @@ export default function AdminPage() {
         'Name',
         'School',
         'Grade',
-        `Score /${MAX_SCORE}`,
-        'Raw',
-        'Bonus',
+        `Correct /${TOTAL_Q}`,
+        'Answer Marks',
+        'Timing Marks',
+        `Total /${MAX_SCORE}`,
         'Fast Answers',
         'Answered',
         'Violations',
@@ -291,14 +292,15 @@ export default function AdminPage() {
     ]
     ;[...scored]
       .sort((a, b) => b.score - a.score)
-      .forEach(({ sub, score, rawScore, bonus, fastCount, answered }) => {
+      .forEach(({ sub, score, rawScore, bonus, correct, fastCount, answered }) => {
         rows.push([
           sub.name,
           sub.school,
           sub.grade,
-          score,
+          correct + '/' + TOTAL_Q,
           rawScore,
           bonus,
+          score,
           fastCount,
           answered + '/' + TOTAL_Q,
           sub.violationCount || 0,

@@ -228,7 +228,9 @@ export function Submissions({ scored, onOpen, onExport, onExportPdf }) {
                 <tr>
                   <th>Student</th>
                   <th>School</th>
-                  <th className="num">Score</th>
+                  <th className="num">Correct /{TOTAL_Q}</th>
+                  <th className="num">Timing marks</th>
+                  <th className="num">Total /{MAX_SCORE}</th>
                   <th className="num">Fast</th>
                   <th className="num">Viol.</th>
                   <th>Status</th>
@@ -237,7 +239,7 @@ export function Submissions({ scored, onOpen, onExport, onExportPdf }) {
                 </tr>
               </thead>
               <tbody>
-                {list.map(({ key, sub, score, fastCount }) => (
+                {list.map(({ key, sub, score, correct, bonus, fastCount }) => (
                   <tr key={key} onClick={() => onOpen(key)}>
                     <td>
                       <div className="cell-user">
@@ -249,6 +251,10 @@ export function Submissions({ scored, onOpen, onExport, onExportPdf }) {
                       </div>
                     </td>
                     <td>{sub.school}</td>
+                    <td className="num">
+                      <b>{correct}</b>/{TOTAL_Q}
+                    </td>
+                    <td className="num">{bonus ? '+' + bonus : '0'}</td>
                     <td className="num">
                       <b className="score-pill">{score}</b>
                     </td>
@@ -319,7 +325,9 @@ export function Leaderboard({ scored, schoolRankings, onOpen, onPoster, bgFile, 
                   <span className={'rank-no r' + (i + 1)}>{i + 1}</span>
                   <div className="rank-main">
                     <b>{it.sub.name}</b>
-                    <small>{it.sub.school}</small>
+                    <small>
+                      {it.sub.school} · {it.correct}/{TOTAL_Q} correct · timing {it.bonus ? '+' + it.bonus : '0'}
+                    </small>
                   </div>
                   <span className="rank-score">{it.score}</span>
                 </li>
@@ -552,7 +560,7 @@ export function Settings({ user, onExport, onClearAll, onDeleteAll, onSignOut, b
                 <b>Q36–50</b> · 4 marks each
               </li>
               <li>
-                <b>Bonus</b> · +{FAST_BONUS_MARKS} if more than {FAST_BONUS_THRESHOLD} fast answers
+                <b>Timing marks</b> · +{FAST_BONUS_MARKS} if more than {FAST_BONUS_THRESHOLD} fast answers
               </li>
               <li>
                 <b>Maximum</b> · {MAX_SCORE} ({TOTAL_Q} questions)

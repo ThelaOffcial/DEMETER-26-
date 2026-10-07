@@ -73,6 +73,7 @@ export function scoreSubmission(sub, key = ANSWER_KEY) {
   let rawScore = 0
   let fastCount = 0
   let answered = 0
+  let correct = 0
   const details = []
   for (let i = 1; i <= TOTAL_Q; i++) {
     const ans = sub.answers && sub.answers[i]
@@ -82,7 +83,10 @@ export function scoreSubmission(sub, key = ANSWER_KEY) {
     const marks = marksForQuestion(i)
     const isCorrect = given !== undefined && given === correct
     if (given !== undefined) answered++
-    if (isCorrect) rawScore += marks
+    if (isCorrect) {
+      rawScore += marks
+      correct++
+    }
     const fast =
       !!(ans && typeof ans === 'object' && ans.fast) ||
       !!(sub.fastAnswers && sub.fastAnswers[i])
@@ -90,7 +94,7 @@ export function scoreSubmission(sub, key = ANSWER_KEY) {
     details.push({ id: i, given, correct, isCorrect, marks, fast })
   }
   const bonus = fastCount > FAST_BONUS_THRESHOLD ? FAST_BONUS_MARKS : 0
-  return { score: rawScore + bonus, rawScore, bonus, fastCount, answered, details }
+  return { score: rawScore + bonus, rawScore, bonus, correct, fastCount, answered, details }
 }
 
 // English-medium submissions store English option text. Option order is identical

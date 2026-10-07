@@ -8,15 +8,16 @@ export function exportResultsPdf(scored, { maxScore, totalQ }) {
   const submitted = rows.filter((r) => r.sub.status === 'submitted').length
   const body = rows
     .map(
-      ({ sub, score, rawScore, bonus, answered }, i) => `<tr>
+      ({ sub, score, rawScore, bonus, correct, answered }, i) => `<tr>
         <td>${i + 1}</td>
         <td>${esc(sub.name)}</td>
         <td>${esc(sub.school)}</td>
         <td>${esc(sub.grade)}</td>
         <td>${sub.lang === 'en' ? 'EN' : 'SI'}</td>
-        <td class="n"><b>${score}</b></td>
+        <td class="n">${correct}/${totalQ}</td>
         <td class="n">${rawScore}</td>
         <td class="n">${bonus}</td>
+        <td class="n"><b>${score}</b></td>
         <td class="n">${answered}/${totalQ}</td>
         <td class="n">${sub.violationCount || 0}</td>
         <td>${esc(sub.status)}${sub.autoSubmitted ? ' (auto)' : ''}</td>
@@ -35,7 +36,7 @@ export function exportResultsPdf(scored, { maxScore, totalQ }) {
 </style></head><body>
 <h1>DEMETER 26' — Round 2 Results</h1>
 <p>Generated ${new Date().toLocaleString()} · ${rows.length} participants (${submitted} submitted) · Max score ${maxScore}</p>
-<table><thead><tr><th>#</th><th>Name</th><th>School</th><th>Grade</th><th>Medium</th><th>Score</th><th>Raw</th><th>Bonus</th><th>Answered</th><th>Violations</th><th>Status</th></tr></thead>
+<table><thead><tr><th>#</th><th>Name</th><th>School</th><th>Grade</th><th>Medium</th><th>Correct /${totalQ}</th><th>Answer marks</th><th>Timing marks</th><th>Total /${maxScore}</th><th>Answered</th><th>Violations</th><th>Status</th></tr></thead>
 <tbody>${body}</tbody></table></body></html>`
 
   const iframe = document.createElement('iframe')

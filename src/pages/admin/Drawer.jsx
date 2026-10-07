@@ -17,10 +17,10 @@ export default function Drawer({ item, onClose, onRetake, onDelete }) {
   }, [onClose])
 
   if (!item) return null
-  const { sub, key, score, rawScore, bonus, fastCount, answered, details } = item
+  const { sub, key, score, rawScore, bonus, correct, fastCount, answered, details } = item
   const violations = Object.values(sub.violations || {})
   const rows = wrongOnly ? details.filter((d) => !d.isCorrect) : details
-  const correctCount = details.filter((d) => d.isCorrect).length
+  const correctCount = correct
 
   return (
     <div className="a-drawer-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -44,7 +44,7 @@ export default function Drawer({ item, onClose, onRetake, onDelete }) {
             <ScoreRing value={score} max={MAX_SCORE} />
             <dl>
               <div>
-                <dt>Correct</dt>
+                <dt>Correct answers</dt>
                 <dd>
                   {correctCount}/{TOTAL_Q}
                 </dd>
@@ -56,11 +56,11 @@ export default function Drawer({ item, onClose, onRetake, onDelete }) {
                 </dd>
               </div>
               <div>
-                <dt>Raw</dt>
+                <dt>Marks (answers)</dt>
                 <dd>{rawScore}</dd>
               </div>
               <div>
-                <dt>Fast</dt>
+                <dt>Fast answers</dt>
                 <dd>
                   {fastCount}
                   <small>
@@ -70,7 +70,7 @@ export default function Drawer({ item, onClose, onRetake, onDelete }) {
                 </dd>
               </div>
               <div>
-                <dt>Bonus</dt>
+                <dt>Timing marks</dt>
                 <dd>{bonus ? '+' + bonus : '0'}</dd>
               </div>
               <div>
